@@ -5,12 +5,19 @@ import path from 'path';
 dotenv.config();
 
 const app: Express = express();
+
+app.use(express.json());
+
 const port = process.env.PORT;
 
 import { Sequelize, DataTypes } from 'sequelize';
 
 const sequelize = new Sequelize('sqlite::memory:');
 const Tracker = sequelize.define('Tracker', {
+  trackId: DataTypes.STRING,
+});
+
+const View = sequelize.define('View', {
   trackId: DataTypes.STRING,
 });
 
@@ -24,7 +31,7 @@ app.get('/image.gif', async (req: Request, res: Response) => {
   console.log(req.ip);
 
     if(req.query.trackId){
-      await Tracker.create({
+      await View.create({
         trackId: req.query.trackId,
       });
     }
@@ -39,7 +46,22 @@ app.listen(port, async () => {
 });
 
 app.get('/info', async (req: Request, res: Response) => {
+  const views = await View.findAll();
   const trackers = await Tracker.findAll();
-  console.log(trackers);
-  res.send(JSON.stringify(trackers));
+
+  console.log("views", views);
+  console.log("trackers", trackers);
+
+  res.send(JSON.stringify({views, trackers}));
+});
+
+
+app.post('/report', async (req: Request, res: Response) => {
+  console.log("Report", req.body);
+  if(req.body.trackId){
+    await Tracker.create({
+      trackId: req.body.trackId,
+    });
+  }
+  res.send(JSON.stringify({}));
 });
