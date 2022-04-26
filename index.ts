@@ -1,10 +1,15 @@
 import express, { Express, Request, Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import cors from 'cors';
 
 dotenv.config();
 
 const app: Express = express();
+
+const corsOptions = {
+  origin: 'https://mail.google.com',
+}
 
 app.use(express.json());
 
@@ -56,7 +61,7 @@ app.get('/info', async (req: Request, res: Response) => {
 });
 
 
-app.post('/report', async (req: Request, res: Response) => {
+app.post('/report', cors(corsOptions), async (req: Request, res: Response) => {
   console.log("Report", req.body);
   if(req.body.trackId){
     await Tracker.create({
