@@ -8,7 +8,7 @@ dotenv.config();
 const app: Express = express();
 
 const corsOptions = {
-  origin: 'https://mail.google.com',
+  origin: ['https://mail.google.com'],
 }
 
 app.use(express.json());
