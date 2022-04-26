@@ -11,7 +11,6 @@ const corsOptions = {
   origin: ['https://mail.google.com'],
 }
 
-app.use(cors(corsOptions));
 app.use(express.json());
 
 const port = process.env.PORT;
@@ -62,7 +61,7 @@ app.get('/info', async (req: Request, res: Response) => {
 });
 
 
-app.post('/report', async (req: Request, res: Response) => {
+app.post('/report', cors(corsOptions), async (req: Request, res: Response) => {
   console.log("Report", req.body);
   if(req.body.trackId){
     await Tracker.create({
