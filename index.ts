@@ -60,8 +60,9 @@ app.get('/info', async (req: Request, res: Response) => {
   res.send(JSON.stringify({views, trackers}));
 });
 
-
-app.post('/report', cors(corsOptions), async (req: Request, res: Response) => {
+const corsMiddleware = cors(corsOptions);
+app.options('/report', corsMiddleware);
+app.post('/report', corsMiddleware, async (req: Request, res: Response) => {
   console.log("Report", req.body);
   if(req.body.trackId){
     await Tracker.create({
