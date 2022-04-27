@@ -20,8 +20,11 @@ const port = process.env.PORT;
 import { Sequelize, DataTypes } from 'sequelize';
 
 const sequelize = new Sequelize('sqlite::memory:');
+
 const Tracker = sequelize.define('Tracker', {
   trackId: DataTypes.STRING,
+  threadId: DataTypes.STRING,
+  emailId: DataTypes.STRING,
 });
 
 const View = sequelize.define('View', {
@@ -69,6 +72,8 @@ app.post('/report', corsMiddleware, async (req: Request, res: Response) => {
   if(req.body.trackId){
     await Tracker.create({
       trackId: req.body.trackId,
+      threadId: req.body.threadId,
+      emailId: req.body.emailId,
     });
   }
   res.send(JSON.stringify({}));
