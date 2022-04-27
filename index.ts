@@ -12,6 +12,8 @@ const corsOptions = {
 }
 
 app.use(express.json());
+// This is ok on Heroku:
+app.set('trust proxy', ['uniquelocal']);
 
 const port = process.env.PORT;
 
