@@ -29,6 +29,8 @@ const Tracker = sequelize.define('Tracker', {
 
 const View = sequelize.define('View', {
   trackId: DataTypes.STRING,
+  clientIp: DataTypes.STRING,
+  userAgent: DataTypes.STRING,
 });
 
 app.get('/', (req: Request, res: Response) => {
@@ -43,6 +45,8 @@ app.get('/image.gif', async (req: Request, res: Response) => {
     if(req.query.trackId){
       await View.create({
         trackId: req.query.trackId,
+        clientIp: req.ip,
+        userAgent: req.headers["user-agent"],
       });
     }
 
