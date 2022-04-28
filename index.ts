@@ -33,35 +33,47 @@ const View = sequelize.define('View', {
   userAgent: DataTypes.STRING,
 });
 
-app.get('/', (req: Request, res: Response) => {
-  res.send('Hello World!');
+app.get('/ping', (req: Request, res: Response) => {
+  res.status(200).send('');
 });
 
 app.get('/image.gif', async (req: Request, res: Response) => {
-  console.log(JSON.stringify(req.headers));
-  console.log(JSON.stringify(req.query));
-  console.log(req.ip);
+  const {trackId} = req.query;
 
-    if(req.query.trackId){
-      await View.create({
-        trackId: req.query.trackId,
-        clientIp: req.ip,
-        userAgent: req.headers["user-agent"],
-      });
-    }
-
-  res.sendFile(path.join(__dirname, '../responses', 'transparent.gif'));
+  // TODO: handle the trackId of other types
+  if(trackId){
+    await View.create({
+      trackId,
+      clientIp: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+    res.sendFile(path.join(__dirname, '../responses', 'transparent.gif'));
+  } else {
+    res.status(400).send();
+  }
 });
 
 
 app.listen(port, async () => {
   await sequelize.sync();
-  console.log(`[server]: Server is running at http://localhost:${port}`);
+  console.log(`[server]: Server is running on ${port}`);
 });
 
 const corsMiddleware = cors(corsOptions);
 
 app.get('/info', corsMiddleware, async (req: Request, res: Response) => {
+  const {trackId} = req.query;
+  // TODO: type
+  if(trackId){
+    const views = await View.findAll({where:{trackId}});
+
+    res.send(JSON.stringify({views}));
+  } else {
+    res.status(400).send(JSON.stringify({}));
+  }
+});
+
+app.get('/dashboard', async (req: Request, res: Response) => {
   const views = await View.findAll();
   const trackers = await Tracker.findAll();
 
@@ -73,13 +85,15 @@ app.get('/info', corsMiddleware, async (req: Request, res: Response) => {
 
 app.options('/report', corsMiddleware);
 app.post('/report', corsMiddleware, async (req: Request, res: Response) => {
-  console.log("Report", req.body);
-  if(req.body.trackId){
+  const {trackId} = req.body;
+  if(trackId){
     await Tracker.create({
-      trackId: req.body.trackId,
+      trackId,
       threadId: req.body.threadId,
       emailId: req.body.emailId,
     });
+    res.send(JSON.stringify({}));
+  } else {
+    res.status(400).send(JSON.stringify({}));
   }
-  res.send(JSON.stringify({}));
 });
