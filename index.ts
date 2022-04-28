@@ -17,7 +17,7 @@ app.set('trust proxy', ['uniquelocal']);
 
 const port = process.env.PORT;
 
-import { Sequelize, Model, InferAttributes, InferCreationAttributes } from 'sequelize';
+import { DataTypes, Sequelize, Model, InferAttributes, InferCreationAttributes } from 'sequelize';
 
 
 const sequelize = new Sequelize('sqlite::memory:');
@@ -33,6 +33,9 @@ class View  extends Model<InferAttributes<View>, InferCreationAttributes<View>> 
   declare clientIp: string
   declare userAgent: string
 }
+
+Tracker.init({trackId:{type: DataTypes.STRING},threadId:{type: DataTypes.STRING},emailId:{type: DataTypes.STRING}}, {sequelize});
+View.init({trackId:{type: DataTypes.STRING},clientIp:{type: DataTypes.STRING},userAgent:{type: DataTypes.STRING}}, {sequelize});
 
 app.get('/ping', (req: Request, res: Response) => {
   res.status(200).send('');
