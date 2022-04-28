@@ -59,7 +59,9 @@ app.listen(port, async () => {
   console.log(`[server]: Server is running at http://localhost:${port}`);
 });
 
-app.get('/info', async (req: Request, res: Response) => {
+const corsMiddleware = cors(corsOptions);
+
+app.get('/info', corsMiddleware, async (req: Request, res: Response) => {
   const views = await View.findAll();
   const trackers = await Tracker.findAll();
 
@@ -69,7 +71,6 @@ app.get('/info', async (req: Request, res: Response) => {
   res.send(JSON.stringify({views, trackers}));
 });
 
-const corsMiddleware = cors(corsOptions);
 app.options('/report', corsMiddleware);
 app.post('/report', corsMiddleware, async (req: Request, res: Response) => {
   console.log("Report", req.body);
