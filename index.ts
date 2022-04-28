@@ -17,21 +17,22 @@ app.set('trust proxy', ['uniquelocal']);
 
 const port = process.env.PORT;
 
-import { Sequelize, DataTypes } from 'sequelize';
+import { Sequelize, Model, InferAttributes, InferCreationAttributes } from 'sequelize';
+
 
 const sequelize = new Sequelize('sqlite::memory:');
 
-const Tracker = sequelize.define('Tracker', {
-  trackId: DataTypes.STRING,
-  threadId: DataTypes.STRING,
-  emailId: DataTypes.STRING,
-});
+class Tracker extends Model<InferAttributes<Tracker>, InferCreationAttributes<Tracker>> {
+  declare trackId: string
+  declare threadId: string
+  declare emailId: string
+}
 
-const View = sequelize.define('View', {
-  trackId: DataTypes.STRING,
-  clientIp: DataTypes.STRING,
-  userAgent: DataTypes.STRING,
-});
+class View  extends Model<InferAttributes<View>, InferCreationAttributes<View>> {
+  declare trackId: string
+  declare clientIp: string
+  declare userAgent: string
+}
 
 app.get('/ping', (req: Request, res: Response) => {
   res.status(200).send('');
@@ -43,9 +44,9 @@ app.get('/image.gif', async (req: Request, res: Response) => {
   // TODO: handle the trackId of other types
   if(trackId){
     await View.create({
-      trackId,
+      trackId: String(trackId),
       clientIp: req.ip,
-      userAgent: req.headers["user-agent"],
+      userAgent: req.headers["user-agent"] ?? '',
     });
     res.sendFile(path.join(__dirname, '../responses', 'transparent.gif'));
   } else {
@@ -62,10 +63,15 @@ app.listen(port, async () => {
 const corsMiddleware = cors(corsOptions);
 
 app.get('/info', corsMiddleware, async (req: Request, res: Response) => {
-  const {trackId} = req.query;
+  const {threadId} = req.query;
   // TODO: type
-  if(trackId){
-    const views = await View.findAll({where:{trackId}});
+  if(threadId){
+    const tracker = await Tracker.findOne({where:{threadId: String(threadId)}})
+    if(!tracker) {
+      res.status(400).send(JSON.stringify({}));
+      return;
+    }
+    const views = await View.findAll({where:{trackId: tracker.trackId}});
 
     res.send(JSON.stringify({views}));
   } else {
