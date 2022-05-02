@@ -1,23 +1,32 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client'
 
+// -------------------------------------------------
+
 dotenv.config();
 
+// -------------------------------------------------
+
 const prisma = new PrismaClient()
-const app: Express = express();
+const app = express();
+
+// -------------------------------------------------
+
+app.use(express.json());
+
+// This is ok on Heroku:
+app.set('trust proxy', ['uniquelocal']);
 
 const corsOptions = {
   origin: ['https://mail.google.com'],
 }
 
-app.use(express.json());
-// This is ok on Heroku:
-app.set('trust proxy', ['uniquelocal']);
+const corsMiddleware = cors(corsOptions);
 
-const port = process.env.PORT;
+// -------------------------------------------------
 
 app.get('/ping', (req: Request, res: Response) => {
   res.status(200).send('');
@@ -38,13 +47,6 @@ app.get('/image.gif', async (req: Request, res: Response) => {
     res.status(400).send();
   }
 });
-
-
-app.listen(port, async () => {
-  console.log(`[server]: Server is running on ${port}`);
-});
-
-const corsMiddleware = cors(corsOptions);
 
 app.get('/info', corsMiddleware, async (req: Request, res: Response) => {
   const {threadId} = req.query;
@@ -89,4 +91,38 @@ app.post('/report', corsMiddleware, async (req: Request, res: Response) => {
   } else {
     res.status(400).send(JSON.stringify({}));
   }
+});
+
+app.get('/login', async (req: Request, res: Response) => {
+  res.send("Logging in...");
+});
+
+app.get('/logged-in', async (req: Request, res: Response) => {
+  res.send("You are logged in. You may close this window.");
+});
+
+app.options('/login/magic', corsMiddleware);
+app.post('/login/magic', corsMiddleware, async (req: Request, res: Response) => {
+  const {email} = req.body;
+  if(!email){
+    res.status(400).send(JSON.stringify({}));
+    return;
+  }
+  const user = await prisma.user.findFirst({where: {email}});
+  if(!user){
+    res.status(400).send(JSON.stringify({}));
+    return;
+  }
+  console.log(`https://${req.hostname}/login#accessToken=asdf&expiresIn=3`)
+
+  res.send(JSON.stringify({}));
+});
+
+// -------------------------------------------------
+
+if (!process.env.PORT){ throw new Error("Missing PORT"); }
+const port = parseInt(process.env.PORT, 10);
+
+app.listen(port, async () => {
+  console.log(`[server]: Server is running on ${port}`);
 });
