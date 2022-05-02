@@ -2,9 +2,11 @@ import express, { Express, Request, Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import cors from 'cors';
+import { PrismaClient } from '@prisma/client'
 
 dotenv.config();
 
+const prisma = new PrismaClient()
 const app: Express = express();
 
 const corsOptions = {
@@ -17,26 +19,6 @@ app.set('trust proxy', ['uniquelocal']);
 
 const port = process.env.PORT;
 
-import { DataTypes, Sequelize, Model, InferAttributes, InferCreationAttributes } from 'sequelize';
-
-
-const sequelize = new Sequelize('sqlite::memory:');
-
-class Tracker extends Model<InferAttributes<Tracker>, InferCreationAttributes<Tracker>> {
-  declare trackId: string
-  declare threadId: string
-  declare emailId: string
-}
-
-class View  extends Model<InferAttributes<View>, InferCreationAttributes<View>> {
-  declare trackId: string
-  declare clientIp: string
-  declare userAgent: string
-}
-
-Tracker.init({trackId:{type: DataTypes.STRING},threadId:{type: DataTypes.STRING},emailId:{type: DataTypes.STRING}}, {sequelize});
-View.init({trackId:{type: DataTypes.STRING},clientIp:{type: DataTypes.STRING},userAgent:{type: DataTypes.STRING}}, {sequelize});
-
 app.get('/ping', (req: Request, res: Response) => {
   res.status(200).send('');
 });
@@ -46,11 +28,11 @@ app.get('/image.gif', async (req: Request, res: Response) => {
 
   // TODO: handle the trackId of other types
   if(trackId){
-    await View.create({
+    await prisma.view.create({data: {
       trackId: String(trackId),
       clientIp: req.ip,
       userAgent: req.headers["user-agent"] ?? '',
-    });
+    }});
     res.sendFile(path.join(__dirname, '../responses', 'transparent.gif'));
   } else {
     res.status(400).send();
@@ -59,7 +41,6 @@ app.get('/image.gif', async (req: Request, res: Response) => {
 
 
 app.listen(port, async () => {
-  await sequelize.sync();
   console.log(`[server]: Server is running on ${port}`);
 });
 
@@ -69,12 +50,13 @@ app.get('/info', corsMiddleware, async (req: Request, res: Response) => {
   const {threadId} = req.query;
   // TODO: type
   if(threadId){
-    const tracker = await Tracker.findOne({where:{threadId: String(threadId)}})
+    const tracker = await prisma.tracker.findFirst({where:{threadId: String(threadId)}, include:{views: true}})
     if(!tracker) {
       res.status(400).send(JSON.stringify({}));
       return;
     }
-    const views = await View.findAll({where:{trackId: tracker.trackId}});
+
+    const views = tracker.views;
 
     res.send(JSON.stringify({views}));
   } else {
@@ -83,8 +65,8 @@ app.get('/info', corsMiddleware, async (req: Request, res: Response) => {
 });
 
 app.get('/dashboard', async (req: Request, res: Response) => {
-  const views = await View.findAll();
-  const trackers = await Tracker.findAll();
+  const views = await prisma.view.findMany();
+  const trackers = await prisma.tracker.findMany();
 
   console.log("views", views);
   console.log("trackers", trackers);
@@ -95,12 +77,14 @@ app.get('/dashboard', async (req: Request, res: Response) => {
 app.options('/report', corsMiddleware);
 app.post('/report', corsMiddleware, async (req: Request, res: Response) => {
   const {trackId} = req.body;
+  const userId = 1;
   if(trackId){
-    await Tracker.create({
+    await prisma.tracker.create({data: {
+      userId,
       trackId,
       threadId: req.body.threadId,
       emailId: req.body.emailId,
-    });
+    }});
     res.send(JSON.stringify({}));
   } else {
     res.status(400).send(JSON.stringify({}));
