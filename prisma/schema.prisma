@@ -15,6 +15,7 @@ model User {
   email    String     @unique
   slug     String     @unique @default(uuid())
   trackers Tracker[]
+  magicLinkTokens MagicLinkToken[]
 }
 
 model Tracker {
@@ -35,4 +36,16 @@ model View {
   tracker   Tracker   @relation(fields: [trackId], references: [trackId])
   clientIp  String
   userAgent String
+}
+
+
+model MagicLinkToken {
+  id        Int       @id @default(autoincrement())
+  createdAt DateTime  @default(now())
+  token     String    @db.Uuid @unique @default(uuid())
+  userId    Int
+  user      User    @relation(fields: [userId], references: [id])
+
+  expiresAt DateTime
+  usedAt DateTime?
 }

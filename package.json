@@ -7,7 +7,8 @@
     "build": "npx tsc",
     "start": "node dist/index.js",
     "dev": "concurrently \"npx tsc --watch\" \"nodemon -q dist/index.js\"",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "add-user": "npx ts-node scripts/add_user.ts"
   },
   "repository": {
     "type": "git",
@@ -22,9 +23,14 @@
   "homepage": "https://github.com/cancan101/email-tracking-api#readme",
   "dependencies": {
     "@prisma/client": "^3.13.0",
+    "@sendgrid/mail": "^7.6.2",
+    "commander": "^9.2.0",
     "cors": "^2.8.5",
+    "dayjs": "^1.11.1",
     "dotenv": "^16.0.0",
-    "express": "^4.18.0"
+    "express": "^4.18.0",
+    "express-validator": "^6.14.0",
+    "jose": "^4.8.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.12",
