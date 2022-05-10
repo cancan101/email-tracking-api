@@ -4,7 +4,7 @@ import path from "path";
 import cors from "cors";
 import { PrismaClient } from "@prisma/client";
 import dayjs from "dayjs";
-import { query, validationResult } from "express-validator";
+import { query, validationResult, body, matchedData } from "express-validator";
 import jsonwebtoken from "jsonwebtoken";
 import { expressjwt, ExpressJwtRequestUnrequired } from "express-jwt";
 
@@ -126,7 +126,8 @@ app.get(
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    const userIdStr = req.query.userId as string;
+    const data = matchedData(req);
+    const userIdStr = data.userId as string;
     const userId = parseInt(userIdStr, 10);
 
     const views = await prisma.view.findMany({
@@ -148,20 +149,32 @@ app.post(
   "/report",
   corsMiddleware,
   ...UseJwt,
+  body("trackId").isUUID().isString(),
+  body("threadId").isString(),
+  body("emailId").isString(),
+  body("emailSubject").isString(),
   async (req: ExpressJwtRequestUnrequired, res: Response) => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).send(JSON.stringify({}));
       return;
     }
-    const { trackId } = req.body;
-    const userId = parseInt(req.auth.sub, 10);
+
+    // Finds the validation errors in this request and wraps them in an object with handy functions
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    const data = matchedData(req);
+    const { trackId, threadId, emailId, emailSubject } = data;
     if (trackId) {
+      const userId = parseInt(req.auth.sub, 10);
       await prisma.tracker.create({
         data: {
           userId,
           trackId,
-          threadId: req.body.threadId,
-          emailId: req.body.emailId,
+          threadId,
+          emailId,
+          emailSubject,
         },
       });
       res.send(JSON.stringify({}));

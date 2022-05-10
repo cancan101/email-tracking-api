@@ -13,6 +13,7 @@ datasource db {
 model User {
   id       Int        @id @default(autoincrement())
   email    String     @unique
+  // TODO(cancan101): make this a true UUID
   slug     String     @unique @default(uuid())
   trackers Tracker[]
   magicLinkTokens MagicLinkToken[]
@@ -22,17 +23,21 @@ model Tracker {
   id        Int     @id @default(autoincrement())
   createdAt DateTime @default(now())
   userId    Int
+  @@index([userId])
   user      User    @relation(fields: [userId], references: [id])
   trackId   String  @db.Uuid @unique
-  emailId   String
+  emailId   String  @unique
   threadId  String
+  emailSubject  String
   views     View[]
 }
 
 model View {
   id        Int       @id @default(autoincrement())
   createdAt DateTime  @default(now())
+  @@index([createdAt])
   trackId   String    @db.Uuid
+  @@index([trackId])
   tracker   Tracker   @relation(fields: [trackId], references: [trackId])
   clientIp  String
   userAgent String
