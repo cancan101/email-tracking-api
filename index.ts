@@ -105,7 +105,7 @@ app.get(
         return;
       }
 
-      const views = trackers.flatMap(tracker => tracker.views)
+      const views = trackers.flatMap((tracker) => tracker.views);
 
       res.send(JSON.stringify({ views }));
     } else {
@@ -129,8 +129,12 @@ app.get(
     const userIdStr = req.query.userId as string;
     const userId = parseInt(userIdStr, 10);
 
-    const views = await prisma.view.findMany({where: {tracker:{ userId}}});
-    const trackers = await prisma.tracker.findMany({where: {userId}});
+    const views = await prisma.view.findMany({
+      where: { tracker: { userId } },
+      orderBy: { createdAt: "desc" },
+      include: { tracker: { select: { threadId: true } } },
+    });
+    const trackers = await prisma.tracker.findMany({ where: { userId } });
 
     console.log("views", views);
     console.log("trackers", trackers);
