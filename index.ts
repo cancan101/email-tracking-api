@@ -133,7 +133,7 @@ app.get(
     const views = await prisma.view.findMany({
       where: { tracker: { userId } },
       orderBy: { createdAt: "desc" },
-      include: { tracker: { select: { threadId: true } } },
+      include: { tracker: { select: { threadId: true, emailSubject: true } } },
     });
     const trackers = await prisma.tracker.findMany({ where: { userId } });
 
