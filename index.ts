@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from "express";
 import dotenv from "dotenv";
 import path from "path";
 import cors from "cors";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import dayjs from "dayjs";
 import { query, validationResult, body, matchedData } from "express-validator";
 import jsonwebtoken from "jsonwebtoken";
@@ -73,13 +73,25 @@ app.get("/image.gif", async (req: Request, res: Response): Promise<void> => {
 
   // TODO: handle the trackId of other types
   if (trackId) {
-    await prisma.view.create({
-      data: {
-        trackId: String(trackId),
-        clientIp: req.ip,
-        userAgent: req.headers["user-agent"] ?? "",
-      },
-    });
+    try {
+      await prisma.view.create({
+        data: {
+          trackId: String(trackId),
+          clientIp: req.ip,
+          userAgent: req.headers["user-agent"] ?? "",
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === "P2003") {
+          console.log("Unknown tracker requested", trackId);
+        } else {
+          console.error(error);
+        }
+      } else{
+        console.error(error);
+      }
+    }
     res.sendFile(path.join(__dirname, "../responses", "transparent.gif"));
     return;
   } else {
@@ -166,7 +178,7 @@ app.post(
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
-      return
+      return;
     }
     const data = matchedData(req);
     const { trackId, threadId, emailId, emailSubject } = data;
@@ -195,7 +207,7 @@ app.get("/login", (req: Request, res: Response): void => {
   return;
 });
 
-app.get("/logged-in", (req: Request, res: Response): void  => {
+app.get("/logged-in", (req: Request, res: Response): void => {
   res.status(200).send("You are logged in. You may close this window.");
   return;
 });
@@ -282,9 +294,7 @@ app.get(
       subject,
     });
 
-    res.redirect(
-      `/login#accessToken=${accessToken}&expiresIn=${expiresIn}`
-    );
+    res.redirect(`/login#accessToken=${accessToken}&expiresIn=${expiresIn}`);
     return;
   }
 );
