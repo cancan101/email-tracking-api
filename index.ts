@@ -5,11 +5,24 @@ import cors from "cors";
 import { PrismaClient } from "@prisma/client";
 import dayjs from "dayjs";
 import { query, validationResult } from "express-validator";
-import * as jose from "jose";
+import jsonwebtoken from "jsonwebtoken";
+import { expressjwt, ExpressJwtRequestUnrequired } from "express-jwt";
 
 // -------------------------------------------------
 
 dotenv.config();
+
+const { JWT_ACCESS_TOKEN_SECRET, PORT: PORT_STR } = process.env;
+
+if (!PORT_STR) {
+  throw new Error("Missing PORT");
+}
+const PORT = parseInt(PORT_STR, 10);
+
+if (!JWT_ACCESS_TOKEN_SECRET) {
+  throw new Error("Missing JWT_ACCESS_TOKEN_SECRET");
+}
+
 // -------------------------------------------------
 
 const MAGIC_TOKEN_EXPIRES: number = 7;
@@ -31,7 +44,12 @@ const corsOptions = {
   origin: ["https://mail.google.com"],
 };
 
+const JWT_ALGORITHM = "HS256";
 const corsMiddleware = cors(corsOptions);
+const jwtMiddlware = expressjwt({
+  secret: JWT_ACCESS_TOKEN_SECRET,
+  algorithms: [JWT_ALGORITHM],
+});
 
 // -------------------------------------------------
 
@@ -58,28 +76,33 @@ app.get("/image.gif", async (req: Request, res: Response) => {
 });
 
 app.options("/info", corsMiddleware);
-app.get("/info", corsMiddleware, async (req: Request, res: Response) => {
-  const { threadId } = req.query;
-  // TODO: type
-  if (threadId) {
-    const tracker = await prisma.tracker.findFirst({
-      where: { threadId: String(threadId) },
-      include: { views: true },
-    });
-    if (!tracker) {
+app.get(
+  "/info",
+  corsMiddleware,
+  jwtMiddlware,
+  async (req: Request, res: Response) => {
+    const { threadId } = req.query;
+    // TODO: type
+    if (threadId) {
+      const tracker = await prisma.tracker.findFirst({
+        where: { threadId: String(threadId) },
+        include: { views: true },
+      });
+      if (!tracker) {
+        res.status(400).send(JSON.stringify({}));
+        return;
+      }
+
+      const views = tracker.views;
+
+      res.send(JSON.stringify({ views }));
+    } else {
       res.status(400).send(JSON.stringify({}));
-      return;
     }
-
-    const views = tracker.views;
-
-    res.send(JSON.stringify({ views }));
-  } else {
-    res.status(400).send(JSON.stringify({}));
   }
-});
+);
 
-app.get("/dashboard", async (req: Request, res: Response) => {
+app.get("/dashboard", jwtMiddlware, async (req: Request, res: Response) => {
   const views = await prisma.view.findMany();
   const trackers = await prisma.tracker.findMany();
 
@@ -90,23 +113,32 @@ app.get("/dashboard", async (req: Request, res: Response) => {
 });
 
 app.options("/report", corsMiddleware);
-app.post("/report", corsMiddleware, async (req: Request, res: Response) => {
-  const { trackId } = req.body;
-  const userId = 1;
-  if (trackId) {
-    await prisma.tracker.create({
-      data: {
-        userId,
-        trackId,
-        threadId: req.body.threadId,
-        emailId: req.body.emailId,
-      },
-    });
-    res.send(JSON.stringify({}));
-  } else {
-    res.status(400).send(JSON.stringify({}));
+app.post(
+  "/report",
+  corsMiddleware,
+  jwtMiddlware,
+  async (req: ExpressJwtRequestUnrequired, res: Response) => {
+    if (!req.auth || !req.auth.sub) {
+      res.status(401).send(JSON.stringify({}));
+      return;
+    }
+    const { trackId } = req.body;
+    const userId = parseInt(req.auth.sub, 10);
+    if (trackId) {
+      await prisma.tracker.create({
+        data: {
+          userId,
+          trackId,
+          threadId: req.body.threadId,
+          emailId: req.body.emailId,
+        },
+      });
+      res.send(JSON.stringify({}));
+    } else {
+      res.status(400).send(JSON.stringify({}));
+    }
   }
-});
+);
 
 app.get("/login", async (req: Request, res: Response) => {
   res.send("Logging in...");
@@ -140,7 +172,10 @@ app.post(
     });
 
     // TODO send email here
-    console.log(`https://${req.hostname}/magic?token=${magicLinkToken.token}`);
+    // req.get("Host") to include the port as req.hostname did not work
+    console.log(
+      `${req.protocol}://${req.get("Host")}/magic?token=${magicLinkToken.token}`
+    );
 
     res.send(JSON.stringify({}));
   }
@@ -180,24 +215,22 @@ app.get(
     const userId = magicLinkToken.userId;
     const subject = String(userId);
 
-    const accessToken = await new jose.SignJWT({})
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuedAt()
-      .setSubject(subject)
-      .setExpirationTime(`${ACCESS_TOKEN_EXPIRES_HOURS}h`)
-      .sign(new TextEncoder().encode("asdf"));
+    const expiresIn = ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60;
 
-    return res.redirect(`/login#accessToken=${accessToken}&expiresIn=${ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60}`);
+    const accessToken = await jsonwebtoken.sign({}, JWT_ACCESS_TOKEN_SECRET, {
+      algorithm: JWT_ALGORITHM,
+      expiresIn,
+      subject,
+    });
+
+    return res.redirect(
+      `/login#accessToken=${accessToken}&expiresIn=${expiresIn}`
+    );
   }
 );
 
 // -------------------------------------------------
 
-if (!process.env.PORT) {
-  throw new Error("Missing PORT");
-}
-const port = parseInt(process.env.PORT, 10);
-
-app.listen(port, async () => {
-  console.log(`[server]: Server is running on ${port}`);
+app.listen(PORT, async () => {
+  console.log(`[server]: Server is running on ${PORT}`);
 });
