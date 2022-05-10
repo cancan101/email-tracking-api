@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import dotenv from "dotenv";
 import path from "path";
 import cors from "cors";
@@ -51,6 +51,17 @@ const jwtMiddlware = expressjwt({
   algorithms: [JWT_ALGORITHM],
 });
 
+const UseJwt = [
+  jwtMiddlware,
+  function (err: any, req: Request, res: Response, next: NextFunction) {
+    if (err.name === "UnauthorizedError") {
+      res.status(err.status ?? 401).json(err);
+    } else {
+      next(err);
+    }
+  },
+];
+
 // -------------------------------------------------
 
 app.get("/ping", (req: Request, res: Response) => {
@@ -79,7 +90,7 @@ app.options("/info", corsMiddleware);
 app.get(
   "/info",
   corsMiddleware,
-  jwtMiddlware,
+  ...UseJwt,
   async (req: Request, res: Response) => {
     const { threadId } = req.query;
     // TODO: type
@@ -88,8 +99,9 @@ app.get(
         where: { threadId: String(threadId) },
         include: { views: true },
       });
+
       if (!tracker) {
-        res.status(400).send(JSON.stringify({}));
+        res.status(400).send(JSON.stringify({ error_code: "unknown_tracker" }));
         return;
       }
 
@@ -97,26 +109,39 @@ app.get(
 
       res.send(JSON.stringify({ views }));
     } else {
-      res.status(400).send(JSON.stringify({}));
+      res.status(400).send(JSON.stringify({ error_code: "missing_thread_id" }));
     }
   }
 );
 
-app.get("/dashboard", jwtMiddlware, async (req: Request, res: Response) => {
-  const views = await prisma.view.findMany();
-  const trackers = await prisma.tracker.findMany();
+app.get(
+  "/dashboard",
+  ...UseJwt,
+  query("userId").isInt(),
+  async (req: Request, res: Response) => {
+    // Finds the validation errors in this request and wraps them in an object with handy functions
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    const userIdStr = req.query.userId as string;
+    const userId = parseInt(userIdStr, 10);
 
-  console.log("views", views);
-  console.log("trackers", trackers);
+    const views = await prisma.view.findMany({where: {tracker:{ userId}}});
+    const trackers = await prisma.tracker.findMany({where: {userId}});
 
-  res.send(JSON.stringify({ views, trackers }));
-});
+    console.log("views", views);
+    console.log("trackers", trackers);
+
+    res.send(JSON.stringify({ views, trackers }));
+  }
+);
 
 app.options("/report", corsMiddleware);
 app.post(
   "/report",
   corsMiddleware,
-  jwtMiddlware,
+  ...UseJwt,
   async (req: ExpressJwtRequestUnrequired, res: Response) => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).send(JSON.stringify({}));
