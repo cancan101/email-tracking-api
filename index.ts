@@ -114,6 +114,7 @@ app.get(
   }
 );
 
+app.options("/dashboard", corsMiddleware);
 app.get(
   "/dashboard",
   ...UseJwt,
