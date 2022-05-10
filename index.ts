@@ -117,6 +117,7 @@ app.get(
 app.options("/dashboard", corsMiddleware);
 app.get(
   "/dashboard",
+  corsMiddleware,
   ...UseJwt,
   query("userId").isInt(),
   async (req: Request, res: Response) => {
