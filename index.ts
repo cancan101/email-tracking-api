@@ -95,17 +95,17 @@ app.get(
     const { threadId } = req.query;
     // TODO: type
     if (threadId) {
-      const tracker = await prisma.tracker.findFirst({
+      const trackers = await prisma.tracker.findMany({
         where: { threadId: String(threadId) },
         include: { views: true },
       });
 
-      if (!tracker) {
+      if (trackers.length === 0) {
         res.status(400).send(JSON.stringify({ error_code: "unknown_tracker" }));
         return;
       }
 
-      const views = tracker.views;
+      const views = trackers.flatMap(tracker => tracker.views)
 
       res.send(JSON.stringify({ views }));
     } else {
