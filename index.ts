@@ -64,11 +64,11 @@ const UseJwt = [
 
 // -------------------------------------------------
 
-app.get("/ping", (req: Request, res: Response) => {
+app.get("/ping", (req: Request, res: Response): void => {
   res.status(200).send("");
 });
 
-app.get("/image.gif", async (req: Request, res: Response) => {
+app.get("/image.gif", async (req: Request, res: Response): Promise<void> => {
   const { trackId } = req.query;
 
   // TODO: handle the trackId of other types
@@ -81,8 +81,10 @@ app.get("/image.gif", async (req: Request, res: Response) => {
       },
     });
     res.sendFile(path.join(__dirname, "../responses", "transparent.gif"));
+    return;
   } else {
     res.status(400).send();
+    return;
   }
 });
 
@@ -91,7 +93,7 @@ app.get(
   "/info",
   corsMiddleware,
   ...UseJwt,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response): Promise<void> => {
     const { threadId } = req.query;
     // TODO: type
     if (threadId) {
@@ -108,8 +110,10 @@ app.get(
       const views = trackers.flatMap((tracker) => tracker.views);
 
       res.send(JSON.stringify({ views }));
+      return;
     } else {
       res.status(400).send(JSON.stringify({ error_code: "missing_thread_id" }));
+      return;
     }
   }
 );
@@ -120,11 +124,12 @@ app.get(
   corsMiddleware,
   ...UseJwt,
   query("userId").isInt(),
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response): Promise<void> => {
     // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+      return;
     }
     const data = matchedData(req);
     const userIdStr = data.userId as string;
@@ -137,10 +142,8 @@ app.get(
     });
     const trackers = await prisma.tracker.findMany({ where: { userId } });
 
-    console.log("views", views);
-    console.log("trackers", trackers);
-
     res.send(JSON.stringify({ views, trackers }));
+    return;
   }
 );
 
@@ -153,7 +156,7 @@ app.post(
   body("threadId").isString(),
   body("emailId").isString(),
   body("emailSubject").isString(),
-  async (req: ExpressJwtRequestUnrequired, res: Response) => {
+  async (req: ExpressJwtRequestUnrequired, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).send(JSON.stringify({}));
       return;
@@ -162,7 +165,8 @@ app.post(
     // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+      return
     }
     const data = matchedData(req);
     const { trackId, threadId, emailId, emailSubject } = data;
@@ -177,33 +181,39 @@ app.post(
           emailSubject,
         },
       });
-      res.send(JSON.stringify({}));
+      res.status(201).send(JSON.stringify({}));
+      return;
     } else {
       res.status(400).send(JSON.stringify({}));
+      return;
     }
   }
 );
 
-app.get("/login", async (req: Request, res: Response) => {
-  res.send("Logging in...");
+app.get("/login", (req: Request, res: Response): void => {
+  res.status(200).send("Logging in...");
+  return;
 });
 
-app.get("/logged-in", async (req: Request, res: Response) => {
-  res.send("You are logged in. You may close this window.");
+app.get("/logged-in", (req: Request, res: Response): void  => {
+  res.status(200).send("You are logged in. You may close this window.");
+  return;
 });
 
 app.options("/login/magic", corsMiddleware);
 app.post(
   "/login/magic",
   corsMiddleware,
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response): Promise<void> => {
     const { email } = req.body;
     if (!email) {
+      // use validation middleware
       res.status(400).send(JSON.stringify({ error: "missing_email" }));
       return;
     }
     const user = await prisma.user.findFirst({ where: { email } });
     if (!user) {
+      // TODO(cancan101): don't leak info here
       res.status(400).send(JSON.stringify({ error: "unknown_user" }));
       return;
     }
@@ -221,18 +231,20 @@ app.post(
       `${req.protocol}://${req.get("Host")}/magic?token=${magicLinkToken.token}`
     );
 
-    res.send(JSON.stringify({}));
+    res.status(200).send(JSON.stringify({}));
+    return;
   }
 );
 
 app.get(
   "/magic",
   query("token").isUUID().isString(),
-  async (req: Request, res: Response) => {
+  async (req: Request, res: Response): Promise<void> => {
     // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      res.status(400).json({ errors: errors.array() });
+      return;
     }
 
     const token = req.query.token as string;
@@ -242,11 +254,14 @@ app.get(
     });
 
     if (!magicLinkToken) {
-      return res.status(400).json({ error_code: "token_invalid" });
+      res.status(400).json({ error_code: "token_invalid" });
+      return;
     } else if (magicLinkToken.usedAt) {
-      return res.status(400).json({ error_code: "token_used" });
+      res.status(400).json({ error_code: "token_used" });
+      return;
     } else if (magicLinkToken.expiresAt < dayjs().toDate()) {
-      return res.status(400).json({ error_code: "token_used" });
+      res.status(400).json({ error_code: "token_used" });
+      return;
     }
 
     await prisma.magicLinkToken.update({
@@ -267,9 +282,10 @@ app.get(
       subject,
     });
 
-    return res.redirect(
+    res.redirect(
       `/login#accessToken=${accessToken}&expiresIn=${expiresIn}`
     );
+    return;
   }
 );
 
