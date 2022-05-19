@@ -125,14 +125,20 @@ app.get(
       const trackers = await prisma.tracker.findMany({
         where: { threadId: String(threadId) },
         include: { views: true },
+        orderBy: { createdAt: "desc" },
       });
 
       if (trackers.length === 0) {
-        res.status(400).send(JSON.stringify({ error_code: "unknown_tracker" }));
+        res.send(
+          JSON.stringify({ views: null, error_code: "unknown_tracker" })
+        );
         return;
       }
 
-      const views = trackers.flatMap((tracker) => tracker.views);
+      const views = trackers
+        .flatMap((tracker) => tracker.views)
+        // since we are not getting this from db due to flatmap
+        .sort((a, b) => -(a.createdAt.getTime() - b.createdAt.getTime()));
 
       res.send(JSON.stringify({ views }));
       return;
