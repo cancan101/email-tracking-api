@@ -31,7 +31,7 @@ if (!JWT_ACCESS_TOKEN_SECRET) {
 
 if (!SENDGRID_API_KEY) {
   throw new Error("Missing SENDGRID_API_KEY");
-} else if(!MAGIC_LINK_FROM_EMAIL){
+} else if (!MAGIC_LINK_FROM_EMAIL) {
   throw new Error("Missing MAGIC_LINK_FROM_EMAIL");
 }
 sgMail.setApiKey(SENDGRID_API_KEY);
@@ -262,7 +262,7 @@ app.post(
       subject: "Email Tracker",
       text: `Login using: ${loginUrl}`,
       // Don't mangle the URL with tracking:
-      tracking_settings: {click_tracking:{enable: false}}
+      tracking_settings: { click_tracking: { enable: false } },
     };
 
     try {
@@ -271,7 +271,7 @@ app.post(
       console.error(error);
 
       if (error.response) {
-        console.error(error.response.body)
+        console.error(error.response.body);
       }
     }
 
@@ -280,6 +280,8 @@ app.post(
   }
 );
 
+// TODO(cancan): make this a POST that returns this information.
+// The GET should just be an empty page
 app.get(
   "/magic",
   query("token").isUUID().isString(),
@@ -295,6 +297,7 @@ app.get(
 
     const magicLinkToken = await prisma.magicLinkToken.findFirst({
       where: { token: String(token) },
+      include: { user: { select: { email: true } } },
     });
 
     if (!magicLinkToken) {
@@ -317,6 +320,7 @@ app.get(
 
     const userId = magicLinkToken.userId;
     const subject = String(userId);
+    const email = magicLinkToken.user.email;
 
     const expiresIn = ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60;
 
@@ -326,7 +330,9 @@ app.get(
       subject,
     });
 
-    res.redirect(`/login#accessToken=${accessToken}&expiresIn=${expiresIn}`);
+    res.redirect(
+      `/login#accessToken=${accessToken}&expiresIn=${expiresIn}&emailAccount=${email}`
+    );
     return;
   }
 );
