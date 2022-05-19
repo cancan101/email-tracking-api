@@ -7,12 +7,18 @@ import dayjs from "dayjs";
 import { query, validationResult, body, matchedData } from "express-validator";
 import jsonwebtoken from "jsonwebtoken";
 import { expressjwt, ExpressJwtRequestUnrequired } from "express-jwt";
+import sgMail from "@sendgrid/mail";
 
 // -------------------------------------------------
 
 dotenv.config();
 
-const { JWT_ACCESS_TOKEN_SECRET, PORT: PORT_STR } = process.env;
+const {
+  JWT_ACCESS_TOKEN_SECRET,
+  PORT: PORT_STR,
+  SENDGRID_API_KEY,
+  MAGIC_LINK_FROM_EMAIL,
+} = process.env;
 
 if (!PORT_STR) {
   throw new Error("Missing PORT");
@@ -22,6 +28,13 @@ const PORT = parseInt(PORT_STR, 10);
 if (!JWT_ACCESS_TOKEN_SECRET) {
   throw new Error("Missing JWT_ACCESS_TOKEN_SECRET");
 }
+
+if (!SENDGRID_API_KEY) {
+  throw new Error("Missing SENDGRID_API_KEY");
+} else if(!MAGIC_LINK_FROM_EMAIL){
+  throw new Error("Missing MAGIC_LINK_FROM_EMAIL");
+}
+sgMail.setApiKey(SENDGRID_API_KEY);
 
 // -------------------------------------------------
 
@@ -88,7 +101,7 @@ app.get("/image.gif", async (req: Request, res: Response): Promise<void> => {
         } else {
           console.error(error);
         }
-      } else{
+      } else {
         console.error(error);
       }
     }
@@ -237,11 +250,30 @@ app.post(
       },
     });
 
-    // TODO send email here
     // req.get("Host") to include the port as req.hostname did not work
-    console.log(
-      `${req.protocol}://${req.get("Host")}/magic?token=${magicLinkToken.token}`
-    );
+    const loginUrl = `${req.protocol}://${req.get("Host")}/magic?token=${
+      magicLinkToken.token
+    }`;
+    console.log(loginUrl);
+
+    const msg = {
+      to: user.email,
+      from: MAGIC_LINK_FROM_EMAIL, // Use the email address or domain you verified
+      subject: "Email Tracker",
+      text: `Login using: ${loginUrl}`,
+      // Don't mangle the URL with tracking:
+      tracking_settings: {click_tracking:{enable: false}}
+    };
+
+    try {
+      await sgMail.send(msg);
+    } catch (error: any) {
+      console.error(error);
+
+      if (error.response) {
+        console.error(error.response.body)
+      }
+    }
 
     res.status(200).send(JSON.stringify({}));
     return;
