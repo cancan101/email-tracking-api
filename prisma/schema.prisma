@@ -13,8 +13,7 @@ datasource db {
 model User {
   id       Int        @id @default(autoincrement())
   email    String     @unique
-  // TODO(cancan101): make this a true UUID
-  slug     String     @unique @default(uuid())
+  slug     String     @db.Uuid @unique @default(uuid())
   trackers Tracker[]
   magicLinkTokens MagicLinkToken[]
 }
