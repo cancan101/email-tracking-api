@@ -4,7 +4,7 @@ import path from "path";
 import cors from "cors";
 import { PrismaClient, Prisma } from "@prisma/client";
 import dayjs from "dayjs";
-import { query, validationResult, body, matchedData } from "express-validator";
+import { query, validationResult, body, matchedData, param } from "express-validator";
 import jsonwebtoken from "jsonwebtoken";
 import { expressjwt, ExpressJwtRequestUnrequired } from "express-jwt";
 import sgMail from "@sendgrid/mail";
@@ -35,6 +35,10 @@ if (!SENDGRID_API_KEY) {
   throw new Error("Missing MAGIC_LINK_FROM_EMAIL");
 }
 sgMail.setApiKey(SENDGRID_API_KEY);
+
+// -------------------------------------------------
+
+const transparentGifPath = path.join(__dirname, "../responses", "transparent.gif")
 
 // -------------------------------------------------
 
@@ -81,15 +85,12 @@ app.get("/ping", (req: Request, res: Response): void => {
   res.status(200).send("");
 });
 
-app.get("/image.gif", async (req: Request, res: Response): Promise<void> => {
-  const { trackId } = req.query;
-
-  // TODO: handle the trackId of other types
-  if (trackId) {
+async function processImage(trackId: string, req: Request, res: Response): Promise<void> {
+    // TODO: handle the trackId of other types
     try {
       await prisma.view.create({
         data: {
-          trackId: String(trackId),
+          trackId,
           clientIp: req.ip,
           userAgent: req.headers["user-agent"] ?? "",
         },
@@ -105,13 +106,46 @@ app.get("/image.gif", async (req: Request, res: Response): Promise<void> => {
         console.error(error);
       }
     }
-    res.sendFile(path.join(__dirname, "../responses", "transparent.gif"));
+    res.sendFile(transparentGifPath);
     return;
-  } else {
-    res.status(400).send();
-    return;
+}
+
+app.get(
+  "/image.gif",
+  query("trackId").isUUID().isString(),
+  async (req: Request, res: Response): Promise<void> => {
+    // Finds the validation errors in this request and wraps them in an object with handy functions
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      // Just send the image in this case
+      res.sendFile(transparentGifPath);
+      return;
+    }
+    const data = matchedData(req);
+    const trackId = data.trackId as string;
+
+    await processImage(trackId, req, res);
   }
-});
+);
+
+app.get(
+  "/t/:trackingSlug/:trackId/image.gif",
+  query("trackingSlug").isUUID().isString(),
+  query("trackId").isUUID().isString(),
+  async (req: Request, res: Response): Promise<void> => {
+    // Finds the validation errors in this request and wraps them in an object with handy functions
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      // Just send the image in this case
+      res.sendFile(transparentGifPath);
+      return;
+    }
+    const data = matchedData(req);
+    const trackId = data.trackId as string;
+
+    await processImage(trackId, req, res);
+  }
+);
 
 app.options("/info", corsMiddleware);
 app.get(
@@ -303,7 +337,7 @@ app.get(
 
     const magicLinkToken = await prisma.magicLinkToken.findFirst({
       where: { token: String(token) },
-      include: { user: { select: { email: true } } },
+      include: { user: { select: { email: true, slug: true } } },
     });
 
     if (!magicLinkToken) {
@@ -326,7 +360,7 @@ app.get(
 
     const userId = magicLinkToken.userId;
     const subject = String(userId);
-    const email = magicLinkToken.user.email;
+    const {email, slug} = magicLinkToken.user;
 
     const expiresIn = ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60;
 
@@ -337,7 +371,7 @@ app.get(
     });
 
     res.redirect(
-      `/login#accessToken=${accessToken}&expiresIn=${expiresIn}&emailAccount=${email}`
+      `/login#accessToken=${accessToken}&expiresIn=${expiresIn}&emailAccount=${email}&trackingSlug=${slug}`
     );
     return;
   }
