@@ -171,8 +171,7 @@ app.get(
     // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      // Just send the image in this case
-      res.sendFile(transparentGifPath);
+      res.status(400).json({ errors: errors.array() });
       return;
     }
     const data = matchedData(req);
