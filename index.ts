@@ -166,7 +166,7 @@ app.get(
   "/info",
   corsMiddleware,
   ...UseJwt,
-  query("threadId").isUUID().isString(),
+  query("threadId").isString(),
   async (req: Request, res: Response): Promise<void> => {
     // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
