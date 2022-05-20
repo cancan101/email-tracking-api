@@ -11,7 +11,7 @@ datasource db {
 }
 
 model User {
-  id       Int        @id @default(autoincrement())
+  id       String     @id @db.Uuid @default(uuid())
   email    String     @unique
   slug     String     @db.Uuid @unique @default(uuid())
   trackers Tracker[]
@@ -21,7 +21,7 @@ model User {
 model Tracker {
   id        Int     @id @default(autoincrement())
   createdAt DateTime @default(now())
-  userId    Int
+  userId    String @db.Uuid
   @@index([userId])
   user      User    @relation(fields: [userId], references: [id])
   trackId   String  @db.Uuid @unique
@@ -47,7 +47,7 @@ model MagicLinkToken {
   id        Int       @id @default(autoincrement())
   createdAt DateTime  @default(now())
   token     String    @db.Uuid @unique @default(uuid())
-  userId    Int
+  userId    String @db.Uuid
   user      User    @relation(fields: [userId], references: [id])
 
   expiresAt DateTime
