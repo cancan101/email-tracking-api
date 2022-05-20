@@ -11,45 +11,46 @@ datasource db {
 }
 
 model User {
-  id       String     @id @db.Uuid @default(uuid())
-  email    String     @unique
-  slug     String     @db.Uuid @unique @default(uuid())
-  trackers Tracker[]
+  id              String           @id @default(uuid()) @db.Uuid
+  email           String           @unique
+  slug            String           @unique @default(uuid()) @db.Uuid
+  trackers        Tracker[]
   magicLinkTokens MagicLinkToken[]
 }
 
 model Tracker {
-  id        Int     @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  userId    String @db.Uuid
+  id           Int      @id @default(autoincrement())
+  createdAt    DateTime @default(now())
+  userId       String   @db.Uuid
+  user         User     @relation(fields: [userId], references: [id])
+  trackId      String   @unique @db.Uuid
+  emailId      String   @unique
+  threadId     String
+  emailSubject String
+  views        View[]
+
   @@index([userId])
-  user      User    @relation(fields: [userId], references: [id])
-  trackId   String  @db.Uuid @unique
-  emailId   String  @unique
-  threadId  String
-  emailSubject  String
-  views     View[]
 }
 
 model View {
-  id        Int       @id @default(autoincrement())
-  createdAt DateTime  @default(now())
-  @@index([createdAt])
-  trackId   String    @db.Uuid
-  @@index([trackId])
-  tracker   Tracker   @relation(fields: [trackId], references: [trackId])
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  trackId   String   @db.Uuid
+  tracker   Tracker  @relation(fields: [trackId], references: [trackId])
   clientIp  String
   userAgent String
+
+  @@index([createdAt])
+  @@index([trackId])
 }
 
-
 model MagicLinkToken {
-  id        Int       @id @default(autoincrement())
-  createdAt DateTime  @default(now())
-  token     String    @db.Uuid @unique @default(uuid())
-  userId    String @db.Uuid
-  user      User    @relation(fields: [userId], references: [id])
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  token     String   @unique @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
 
   expiresAt DateTime
-  usedAt DateTime?
+  usedAt    DateTime?
 }
