@@ -203,7 +203,7 @@ app.get(
   "/dashboard",
   corsMiddleware,
   ...UseJwt,
-  query("userId").isInt(),
+  query("userId").isUUID(),
   async (req: Request, res: Response): Promise<void> => {
     // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
@@ -212,8 +212,7 @@ app.get(
       return;
     }
     const data = matchedData(req);
-    const userIdStr = data.userId as string;
-    const userId = parseInt(userIdStr, 10);
+    const userId = data.userId as string;
 
     const views = await prisma.view.findMany({
       where: { tracker: { userId } },
@@ -251,7 +250,7 @@ app.post(
     const data = matchedData(req);
     const { trackId, threadId, emailId, emailSubject } = data;
     if (trackId) {
-      const userId = parseInt(req.auth.sub, 10);
+      const userId = req.auth.sub;
       await prisma.tracker.create({
         data: {
           userId,
