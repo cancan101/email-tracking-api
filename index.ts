@@ -95,17 +95,44 @@ app.get("/ping", (req: Request, res: Response): void => {
   res.status(200).send("");
 });
 
+async function fetchWithTimeout(
+  resource: RequestInfo,
+  options: RequestInit & { timeout?: number } = {}
+) {
+  const { timeout = 8000 } = options;
+
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  const response = await fetch(resource, {
+    ...options,
+    signal: controller.signal,
+  });
+  clearTimeout(id);
+  return response;
+}
+
 async function processImage(
   trackId: string,
   req: Request,
   res: Response
 ): Promise<void> {
-  // TODO: handle the trackId of other types
+  const clientIp = req.ip;
+
+  let clientIpGeo: object | null = null;
+  try {
+    const resp = await fetchWithTimeout(`http://ipwho.is/${clientIp}`);
+    if (resp.ok) {
+      const clientIpGeoData = await resp.json();
+      clientIpGeo = { data: clientIpGeoData, source: "ipwhois" };
+    }
+  } catch {}
+
   try {
     await prisma.view.create({
       data: {
         trackId,
-        clientIp: req.ip,
+        clientIp,
+        clientIpGeo: clientIpGeo ?? undefined,
         userAgent: req.headers["user-agent"] ?? "",
       },
     });
@@ -120,7 +147,6 @@ async function processImage(
       console.error(error);
     }
   }
-  res.sendFile(transparentGifPath);
   return;
 }
 
@@ -128,11 +154,12 @@ app.get(
   "/image.gif",
   query("trackId").isUUID().isString(),
   async (req: Request, res: Response): Promise<void> => {
+    res.sendFile(transparentGifPath);
+
     // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       // Just send the image in this case
-      res.sendFile(transparentGifPath);
       return;
     }
     const data = matchedData(req);
@@ -147,11 +174,12 @@ app.get(
   param("trackingSlug").isUUID().isString(),
   param("trackId").isUUID().isString(),
   async (req: Request, res: Response): Promise<void> => {
+    res.sendFile(transparentGifPath);
+
     // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       // Just send the image in this case
-      res.sendFile(transparentGifPath);
       return;
     }
     const data = matchedData(req);

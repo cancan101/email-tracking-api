@@ -39,6 +39,7 @@ model View {
   tracker   Tracker  @relation(fields: [trackId], references: [trackId])
   clientIp  String
   userAgent String
+  clientIpGeo Json?
 
   @@index([createdAt])
   @@index([trackId])
