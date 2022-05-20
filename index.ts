@@ -117,15 +117,19 @@ async function processImage(
   res: Response
 ): Promise<void> {
   const clientIp = req.ip;
+  const userAgent = req.headers["user-agent"];
 
   let clientIpGeo: object | null = null;
-  try {
-    const resp = await fetchWithTimeout(`http://ipwho.is/${clientIp}`);
-    if (resp.ok) {
-      const clientIpGeoData = await resp.json();
-      clientIpGeo = { data: clientIpGeoData, source: "ipwhois" };
-    }
-  } catch {}
+
+  if (userAgent == null || !userAgent.includes("GoogleImageProxy")) {
+    try {
+      const resp = await fetchWithTimeout(`http://ipwho.is/${clientIp}`);
+      if (resp.ok) {
+        const clientIpGeoData = await resp.json();
+        clientIpGeo = { data: clientIpGeoData, source: "ipwhois" };
+      }
+    } catch {}
+  }
 
   try {
     await prisma.view.create({
@@ -133,7 +137,7 @@ async function processImage(
         trackId,
         clientIp,
         clientIpGeo: clientIpGeo ?? undefined,
-        userAgent: req.headers["user-agent"] ?? "",
+        userAgent: userAgent ?? "",
       },
     });
   } catch (error) {
