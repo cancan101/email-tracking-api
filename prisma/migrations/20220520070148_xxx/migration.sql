@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "MagicLinkToken" ALTER COLUMN "id" DROP DEFAULT;
+
+-- AlterTable
+ALTER TABLE "Tracker" ALTER COLUMN "id" DROP DEFAULT;
+
+-- AlterTable
+ALTER TABLE "View" ALTER COLUMN "id" DROP DEFAULT;
