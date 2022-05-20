@@ -144,8 +144,8 @@ app.get(
 
 app.get(
   "/t/:trackingSlug/:trackId/image.gif",
-  query("trackingSlug").isUUID().isString(),
-  query("trackId").isUUID().isString(),
+  param("trackingSlug").isUUID().isString(),
+  param("trackId").isUUID().isString(),
   async (req: Request, res: Response): Promise<void> => {
     // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
