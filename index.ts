@@ -4,7 +4,13 @@ import path from "path";
 import cors from "cors";
 import { PrismaClient, Prisma } from "@prisma/client";
 import dayjs from "dayjs";
-import { query, validationResult, body, matchedData, param } from "express-validator";
+import {
+  query,
+  validationResult,
+  body,
+  matchedData,
+  param,
+} from "express-validator";
 import jsonwebtoken from "jsonwebtoken";
 import { expressjwt, ExpressJwtRequestUnrequired } from "express-jwt";
 import sgMail from "@sendgrid/mail";
@@ -38,7 +44,11 @@ sgMail.setApiKey(SENDGRID_API_KEY);
 
 // -------------------------------------------------
 
-const transparentGifPath = path.join(__dirname, "../responses", "transparent.gif")
+const transparentGifPath = path.join(
+  __dirname,
+  "../responses",
+  "transparent.gif"
+);
 
 // -------------------------------------------------
 
@@ -85,29 +95,33 @@ app.get("/ping", (req: Request, res: Response): void => {
   res.status(200).send("");
 });
 
-async function processImage(trackId: string, req: Request, res: Response): Promise<void> {
-    // TODO: handle the trackId of other types
-    try {
-      await prisma.view.create({
-        data: {
-          trackId,
-          clientIp: req.ip,
-          userAgent: req.headers["user-agent"] ?? "",
-        },
-      });
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError) {
-        if (error.code === "P2003") {
-          console.log("Unknown tracker requested", trackId);
-        } else {
-          console.error(error);
-        }
+async function processImage(
+  trackId: string,
+  req: Request,
+  res: Response
+): Promise<void> {
+  // TODO: handle the trackId of other types
+  try {
+    await prisma.view.create({
+      data: {
+        trackId,
+        clientIp: req.ip,
+        userAgent: req.headers["user-agent"] ?? "",
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2003") {
+        console.log("Unknown tracker requested", trackId);
       } else {
         console.error(error);
       }
+    } else {
+      console.error(error);
     }
-    res.sendFile(transparentGifPath);
-    return;
+  }
+  res.sendFile(transparentGifPath);
+  return;
 }
 
 app.get(
@@ -152,34 +166,36 @@ app.get(
   "/info",
   corsMiddleware,
   ...UseJwt,
+  query("threadId").isUUID().isString(),
   async (req: Request, res: Response): Promise<void> => {
-    const { threadId } = req.query;
-    // TODO: type
-    if (threadId) {
-      const trackers = await prisma.tracker.findMany({
-        where: { threadId: String(threadId) },
-        include: { views: true },
-        orderBy: { createdAt: "desc" },
-      });
-
-      if (trackers.length === 0) {
-        res.send(
-          JSON.stringify({ views: null, error_code: "unknown_tracker" })
-        );
-        return;
-      }
-
-      const views = trackers
-        .flatMap((tracker) => tracker.views)
-        // since we are not getting this from db due to flatmap
-        .sort((a, b) => -(a.createdAt.getTime() - b.createdAt.getTime()));
-
-      res.send(JSON.stringify({ views }));
-      return;
-    } else {
-      res.status(400).send(JSON.stringify({ error_code: "missing_thread_id" }));
+    // Finds the validation errors in this request and wraps them in an object with handy functions
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      // Just send the image in this case
+      res.sendFile(transparentGifPath);
       return;
     }
+    const data = matchedData(req);
+    const threadId = data.threadId as string;
+
+    const trackers = await prisma.tracker.findMany({
+      where: { threadId: String(threadId) },
+      include: { views: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (trackers.length === 0) {
+      res.send(JSON.stringify({ views: null, error_code: "unknown_tracker" }));
+      return;
+    }
+
+    const views = trackers
+      .flatMap((tracker) => tracker.views)
+      // since we are not getting this from db due to flatmap
+      .sort((a, b) => -(a.createdAt.getTime() - b.createdAt.getTime()));
+
+    res.send(JSON.stringify({ views }));
+    return;
   }
 );
 
@@ -360,7 +376,7 @@ app.get(
 
     const userId = magicLinkToken.userId;
     const subject = String(userId);
-    const {email, slug} = magicLinkToken.user;
+    const { email, slug } = magicLinkToken.user;
 
     const expiresIn = ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60;
 
