@@ -111,6 +111,12 @@ async function fetchWithTimeout(
   return response;
 }
 
+type ClientIpGeo = {
+  source: string;
+  data?: object;
+  rule?: string;
+}
+
 async function processImage(
   trackId: string,
   req: Request,
@@ -119,14 +125,20 @@ async function processImage(
   const clientIp = req.ip;
   const userAgent = req.headers["user-agent"];
 
-  let clientIpGeo: object | null = null;
+  let clientIpGeo: ClientIpGeo | null = null;
 
   if (userAgent == null || !userAgent.includes("GoogleImageProxy")) {
     try {
       const resp = await fetchWithTimeout(`http://ipwho.is/${clientIp}`);
+      clientIpGeo = { source: "ipwhois" };
       if (resp.ok) {
         const clientIpGeoData = await resp.json();
-        clientIpGeo = { data: clientIpGeoData, source: "ipwhois" };
+        const isGoogleLlc = (clientIpGeoData?.connection?.isp === "Google LLC");
+        if(isGoogleLlc){
+          clientIpGeo.rule = "connectionIspGoogleLlc";
+        } else {
+          clientIpGeo.data = clientIpGeoData;
+        }
       }
     } catch {}
   }
