@@ -115,7 +115,7 @@ type ClientIpGeo = {
   source: string;
   data?: object;
   rule?: string;
-}
+};
 
 async function processImage(
   trackId: string,
@@ -127,14 +127,19 @@ async function processImage(
 
   let clientIpGeo: ClientIpGeo | null = null;
 
-  if (userAgent == null || !userAgent.includes("GoogleImageProxy")) {
+  const isProxied =
+    userAgent !== undefined &&
+    (userAgent.includes("YahooMailProxy") ||
+      userAgent.includes("GoogleImageProxy"));
+
+  if (userAgent === undefined || !isProxied) {
     try {
       const resp = await fetchWithTimeout(`http://ipwho.is/${clientIp}`);
       clientIpGeo = { source: "ipwhois" };
       if (resp.ok) {
         const clientIpGeoData = await resp.json();
-        const isGoogleLlc = (clientIpGeoData?.connection?.isp === "Google LLC");
-        if(isGoogleLlc){
+        const isGoogleLlc = clientIpGeoData?.connection?.isp === "Google LLC";
+        if (isGoogleLlc) {
           clientIpGeo.rule = "connectionIspGoogleLlc";
         } else {
           clientIpGeo.data = clientIpGeoData;
