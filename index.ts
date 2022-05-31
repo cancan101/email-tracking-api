@@ -14,33 +14,22 @@ import {
 import jsonwebtoken from "jsonwebtoken";
 import { expressjwt, ExpressJwtRequestUnrequired } from "express-jwt";
 import sgMail from "@sendgrid/mail";
+import { cleanEnv, str, email, port } from "envalid";
 
 // -------------------------------------------------
 
 dotenv.config();
 
-const {
-  JWT_ACCESS_TOKEN_SECRET,
-  PORT: PORT_STR,
-  SENDGRID_API_KEY,
-  MAGIC_LINK_FROM_EMAIL,
-} = process.env;
+const env = cleanEnv(process.env, {
+  JWT_ACCESS_TOKEN_SECRET: str(),
+  SENDGRID_API_KEY: str(),
+  PORT: port(),
+  MAGIC_LINK_FROM_EMAIL: email(),
+});
 
-if (!PORT_STR) {
-  throw new Error("Missing PORT");
-}
-const PORT = parseInt(PORT_STR, 10);
+// -------------------------------------------------
 
-if (!JWT_ACCESS_TOKEN_SECRET) {
-  throw new Error("Missing JWT_ACCESS_TOKEN_SECRET");
-}
-
-if (!SENDGRID_API_KEY) {
-  throw new Error("Missing SENDGRID_API_KEY");
-} else if (!MAGIC_LINK_FROM_EMAIL) {
-  throw new Error("Missing MAGIC_LINK_FROM_EMAIL");
-}
-sgMail.setApiKey(SENDGRID_API_KEY);
+sgMail.setApiKey(env.SENDGRID_API_KEY);
 
 // -------------------------------------------------
 
@@ -74,7 +63,7 @@ const corsOptions = {
 const JWT_ALGORITHM = "HS256";
 const corsMiddleware = cors(corsOptions);
 const jwtMiddlware = expressjwt({
-  secret: JWT_ACCESS_TOKEN_SECRET,
+  secret: env.JWT_ACCESS_TOKEN_SECRET,
   algorithms: [JWT_ALGORITHM],
 });
 
@@ -361,7 +350,7 @@ app.post(
 
     const msg = {
       to: user.email,
-      from: MAGIC_LINK_FROM_EMAIL, // Use the email address or domain you verified
+      from: env.MAGIC_LINK_FROM_EMAIL, // Use the email address or domain you verified
       subject: "Email Tracker",
       text: `Login using: ${loginUrl}`,
       // Don't mangle the URL with tracking:
@@ -427,11 +416,15 @@ app.get(
 
     const expiresIn = ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60;
 
-    const accessToken = await jsonwebtoken.sign({}, JWT_ACCESS_TOKEN_SECRET, {
-      algorithm: JWT_ALGORITHM,
-      expiresIn,
-      subject,
-    });
+    const accessToken = await jsonwebtoken.sign(
+      {},
+      env.JWT_ACCESS_TOKEN_SECRET,
+      {
+        algorithm: JWT_ALGORITHM,
+        expiresIn,
+        subject,
+      }
+    );
 
     res.redirect(
       `/login#accessToken=${accessToken}&expiresIn=${expiresIn}&emailAccount=${email}&trackingSlug=${slug}`
@@ -442,6 +435,6 @@ app.get(
 
 // -------------------------------------------------
 
-app.listen(PORT, async () => {
-  console.log(`[server]: Server is running on ${PORT}`);
+app.listen(env.PORT, async () => {
+  console.log(`[server]: Server is running on ${env.PORT}`);
 });
