@@ -169,7 +169,7 @@ async function processImage(
 // Deprecated
 app.get(
   "/image.gif",
-  query("trackId").isUUID().isString(),
+  query("trackId").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
     res.sendFile(transparentGifPath);
 
@@ -188,8 +188,8 @@ app.get(
 
 app.get(
   "/t/:trackingSlug/:trackId/image.gif",
-  param("trackingSlug").isUUID().isString(),
-  param("trackId").isUUID().isString(),
+  param("trackingSlug").isString().isUUID(),
+  param("trackId").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
     res.sendFile(transparentGifPath);
 
@@ -276,7 +276,7 @@ app.post(
   "/report",
   corsMiddleware,
   ...UseJwt,
-  body("trackId").isUUID().isString(),
+  body("trackId").isString().isUUID(),
   body("threadId").isString(),
   body("emailId").isString(),
   body("emailSubject").isString(),
@@ -328,17 +328,22 @@ app.options("/login/magic", corsMiddleware);
 app.post(
   "/login/magic",
   corsMiddleware,
+  body("email").isString().isEmail({domain_specific_validation: true}),
   async (req: Request, res: Response): Promise<void> => {
-    const { email } = req.body;
-    if (!email) {
-      // use validation middleware
-      res.status(400).send(JSON.stringify({ error: "missing_email" }));
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
       return;
     }
+
+    // From here on out, jsut return 200
+    res.status(200).send(JSON.stringify({}));
+
+    const data = matchedData(req);
+
+    const { email } = data;
     const user = await prisma.user.findFirst({ where: { email } });
     if (!user) {
-      // TODO(cancan101): don't leak info here
-      res.status(400).send(JSON.stringify({ error: "unknown_user" }));
       return;
     }
 
@@ -353,7 +358,7 @@ app.post(
     const loginUrl = `${req.protocol}://${req.get("Host")}/magic?token=${
       magicLinkToken.token
     }`;
-    console.log(loginUrl);
+    console.log("loginUrl:", email, loginUrl);
 
     const msg = {
       to: user.email,
@@ -374,7 +379,7 @@ app.post(
       }
     }
 
-    res.status(200).send(JSON.stringify({}));
+
     return;
   }
 );
@@ -383,7 +388,7 @@ app.post(
 // The GET should just be an empty page
 app.get(
   "/magic",
-  query("token").isUUID().isString(),
+  query("token").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
     // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
