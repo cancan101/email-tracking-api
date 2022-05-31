@@ -49,7 +49,7 @@ if (!fs.existsSync(transparentGifPath)) {
 const MAGIC_TOKEN_EXPIRES: number = 7;
 const ACCESS_TOKEN_EXPIRES_HOURS: number = 2;
 
-const GMAIL_ORIGIN: string  = "https://mail.google.com"
+const GMAIL_ORIGIN: string = "https://mail.google.com";
 
 const JWT_ALGORITHM = "HS256";
 
@@ -328,7 +328,7 @@ app.options("/login/magic", corsMiddleware);
 app.post(
   "/login/magic",
   corsMiddleware,
-  body("email").isString().isEmail({domain_specific_validation: true}),
+  body("email").isString().isEmail({ domain_specific_validation: true }),
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -336,12 +336,14 @@ app.post(
       return;
     }
 
-    // From here on out, jsut return 200
+    // From here on out, just return 200
     res.status(200).send(JSON.stringify({}));
 
     const data = matchedData(req);
 
     const { email } = data;
+
+    // Consider wrapping this all in try / catch
     const user = await prisma.user.findFirst({ where: { email } });
     if (!user) {
       return;
@@ -358,7 +360,6 @@ app.post(
     const loginUrl = `${req.protocol}://${req.get("Host")}/magic?token=${
       magicLinkToken.token
     }`;
-    console.log("loginUrl:", email, loginUrl);
 
     const msg = {
       to: user.email,
@@ -369,7 +370,10 @@ app.post(
       tracking_settings: { click_tracking: { enable: false } },
     };
 
+    console.log("loginUrl:", email, loginUrl);
+
     try {
+      // TODO(cancan101): option to mock this (merge with log above)
       await sgMail.send(msg);
     } catch (error: any) {
       console.error(error);
@@ -378,7 +382,6 @@ app.post(
         console.error(error.response.body);
       }
     }
-
 
     return;
   }
