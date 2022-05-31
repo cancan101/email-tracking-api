@@ -34,6 +34,7 @@ sgMail.setApiKey(env.SENDGRID_API_KEY);
 
 // -------------------------------------------------
 
+// we assume that this is the file run in this location relative to responses directory
 const transparentGifPath = path.join(
   __dirname,
   "./responses",
@@ -48,6 +49,10 @@ if (!fs.existsSync(transparentGifPath)) {
 const MAGIC_TOKEN_EXPIRES: number = 7;
 const ACCESS_TOKEN_EXPIRES_HOURS: number = 2;
 
+const GMAIL_ORIGIN: string  = "https://mail.google.com"
+
+const JWT_ALGORITHM = "HS256";
+
 // -------------------------------------------------
 
 const prisma = new PrismaClient();
@@ -61,10 +66,9 @@ app.use(express.json());
 app.set("trust proxy", ["uniquelocal"]);
 
 const corsOptions = {
-  origin: ["https://mail.google.com"],
+  origin: [GMAIL_ORIGIN],
 };
 
-const JWT_ALGORITHM = "HS256";
 const corsMiddleware = cors(corsOptions);
 const jwtMiddlware = expressjwt({
   secret: env.JWT_ACCESS_TOKEN_SECRET,
@@ -74,6 +78,7 @@ const jwtMiddlware = expressjwt({
 const UseJwt = [
   jwtMiddlware,
   function (err: any, req: Request, res: Response, next: NextFunction) {
+    // make sure to respond with JSON in case of 401 from JWT library
     if (err.name === "UnauthorizedError") {
       res.status(err.status ?? 401).json(err);
     } else {
@@ -83,10 +88,6 @@ const UseJwt = [
 ];
 
 // -------------------------------------------------
-
-app.get("/ping", (req: Request, res: Response): void => {
-  res.status(200).send("");
-});
 
 async function fetchWithTimeout(
   resource: RequestInfo,
@@ -151,6 +152,7 @@ async function processImage(
       },
     });
   } catch (error) {
+    // ask forgiveness
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       if (error.code === "P2003") {
         console.log("Unknown tracker requested", trackId);
@@ -164,6 +166,7 @@ async function processImage(
   return;
 }
 
+// Deprecated
 app.get(
   "/image.gif",
   query("trackId").isUUID().isString(),
@@ -436,6 +439,11 @@ app.get(
     return;
   }
 );
+
+// Probably not needed long term
+app.get("/ping", (req: Request, res: Response): void => {
+  res.status(200).send("");
+});
 
 // -------------------------------------------------
 
