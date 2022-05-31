@@ -15,6 +15,7 @@ import jsonwebtoken from "jsonwebtoken";
 import { expressjwt, ExpressJwtRequestUnrequired } from "express-jwt";
 import sgMail from "@sendgrid/mail";
 import { cleanEnv, str, email, port } from "envalid";
+import fs from "fs";
 
 // -------------------------------------------------
 
@@ -35,9 +36,12 @@ sgMail.setApiKey(env.SENDGRID_API_KEY);
 
 const transparentGifPath = path.join(
   __dirname,
-  "../responses",
+  "./responses",
   "transparent.gif"
 );
+if (!fs.existsSync(transparentGifPath)) {
+  throw Error(`No such file: ${transparentGifPath}`);
+}
 
 // -------------------------------------------------
 

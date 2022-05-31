@@ -4,11 +4,11 @@
   "description": "The API backend for the email tracking",
   "main": "index.js",
   "scripts": {
-    "build": "npx tsc",
-    "start": "node dist/index.js",
+    "build": "npx tsc --noEmit",
+    "start": "ts-node --transpile-only index.ts",
     "dev": "ts-node-dev --respawn --transpile-only index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "add-user": "npx ts-node scripts/add_user.ts"
+    "add-user": "ts-node scripts/add_user.ts"
   },
   "repository": {
     "type": "git",
@@ -32,7 +32,8 @@
     "express": "^4.18.0",
     "express-jwt": "^7.6.2",
     "express-validator": "^6.14.0",
-    "jsonwebtoken": "^8.5.1"
+    "jsonwebtoken": "^8.5.1",
+    "ts-node": "^10.8.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.12",
