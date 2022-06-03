@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from "express";
 import dotenv from "dotenv";
 import path from "path";
 import cors from "cors";
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient, Prisma, View } from "@prisma/client";
 import dayjs from "dayjs";
 import {
   query,
@@ -206,6 +206,25 @@ app.get(
   }
 );
 
+const getViewsForTracker = async (threadId: string): Promise<null | View[]> => {
+  const trackers = await prisma.tracker.findMany({
+    where: { threadId: String(threadId) },
+    include: { views: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (trackers.length === 0) {
+    return null;
+  }
+
+  const views = trackers
+    .flatMap((tracker) => tracker.views)
+    // since we are not getting this from db due to flatmap
+    .sort((a, b) => -(a.createdAt.getTime() - b.createdAt.getTime()));
+
+  return views;
+};
+
 app.options("/info", corsMiddleware);
 app.get(
   "/info",
@@ -220,23 +239,14 @@ app.get(
       return;
     }
     const data = matchedData(req);
-    const threadId = data.threadId as string;
+    const threadId = String(data.threadId);
 
-    const trackers = await prisma.tracker.findMany({
-      where: { threadId: String(threadId) },
-      include: { views: true },
-      orderBy: { createdAt: "desc" },
-    });
+    const views = await getViewsForTracker(threadId);
 
-    if (trackers.length === 0) {
+    if (views === null) {
       res.send(JSON.stringify({ views: null, error_code: "unknown_tracker" }));
       return;
     }
-
-    const views = trackers
-      .flatMap((tracker) => tracker.views)
-      // since we are not getting this from db due to flatmap
-      .sort((a, b) => -(a.createdAt.getTime() - b.createdAt.getTime()));
 
     res.send(JSON.stringify({ views }));
     return;
