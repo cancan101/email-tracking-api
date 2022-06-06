@@ -346,6 +346,10 @@ app.post(
       return;
     }
 
+    const protocol = req.protocol;
+    // req.get("Host") to include the port as req.hostname did not work
+    const host = req.get("Host");
+
     // From here on out, just return 200
     res.status(200).send(JSON.stringify({}));
 
@@ -366,10 +370,7 @@ app.post(
       },
     });
 
-    // req.get("Host") to include the port as req.hostname did not work
-    const loginUrl = `${req.protocol}://${req.get("Host")}/magic?token=${
-      magicLinkToken.token
-    }`;
+    const loginUrl = `${protocol}://${host}/magic?token=${magicLinkToken.token}`;
 
     const msg = {
       to: user.email,
