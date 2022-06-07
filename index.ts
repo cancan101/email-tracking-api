@@ -261,9 +261,9 @@ app.get(
   }
 );
 
-app.options("/dashboard", corsMiddleware);
+app.options("/api/v1/views/", corsMiddleware);
 app.get(
-  "/dashboard",
+  "/api/v1/views/",
   corsMiddleware,
   ...UseJwt,
   query("userId").isUUID(),
@@ -293,9 +293,8 @@ app.get(
       orderBy: { createdAt: "desc" },
       include: { tracker: { select: { threadId: true, emailSubject: true } } },
     });
-    const trackers = await prisma.tracker.findMany({ where: { userId } });
 
-    res.send(JSON.stringify({ views, trackers }));
+    res.send(JSON.stringify(views));
     return;
   }
 );
