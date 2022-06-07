@@ -346,6 +346,7 @@ app.post(
       return;
     }
 
+    // Read this off before sending the response
     const protocol = req.protocol;
     // req.get("Host") to include the port as req.hostname did not work
     const host = req.get("Host");
