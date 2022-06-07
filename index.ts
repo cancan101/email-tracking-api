@@ -208,7 +208,7 @@ app.get(
 
 const getViewsForTracker = async (threadId: string): Promise<null | View[]> => {
   const trackers = await prisma.tracker.findMany({
-    where: { threadId: String(threadId) },
+    where: { threadId },
     include: { views: true },
     orderBy: { createdAt: "desc" },
   });
@@ -414,7 +414,7 @@ app.get(
     const token = req.query.token as string;
 
     const magicLinkToken = await prisma.magicLinkToken.findFirst({
-      where: { token: String(token) },
+      where: { token },
       include: { user: { select: { email: true, slug: true } } },
     });
 
