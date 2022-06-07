@@ -227,12 +227,12 @@ const getViewsForTracker = async (
   return views;
 };
 
-app.options("/info", corsMiddleware);
+app.options("/api/v1/threads/:threadId/views/", corsMiddleware);
 app.get(
-  "/info",
+  "/api/v1/threads/:threadId/views/",
   corsMiddleware,
   ...UseJwt,
-  query("threadId").isString(),
+  param("threadId").isString(),
   async (req: ExpressJwtRequestUnrequired, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).send(JSON.stringify({}));
@@ -256,7 +256,7 @@ app.get(
       return;
     }
 
-    res.send(JSON.stringify({ views }));
+    res.send(JSON.stringify({ data: views }));
     return;
   }
 );
