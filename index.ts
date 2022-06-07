@@ -26,8 +26,8 @@ const env = cleanEnv(process.env, {
   SENDGRID_API_KEY: str(),
   PORT: port(),
   MAGIC_LINK_FROM_EMAIL: email(),
-  ACCESS_TOKEN_EXPIRES_HOURS: num({default: 2}),
-  MAGIC_TOKEN_EXPIRES_HOURS: num({default: 24})
+  ACCESS_TOKEN_EXPIRES_HOURS: num({ default: 2 }),
+  MAGIC_TOKEN_EXPIRES_HOURS: num({ default: 24 }),
 });
 
 // -------------------------------------------------
@@ -205,9 +205,12 @@ app.get(
   }
 );
 
-const getViewsForTracker = async (threadId: string): Promise<null | View[]> => {
+const getViewsForTracker = async (
+  threadId: string,
+  userId: string
+): Promise<null | View[]> => {
   const trackers = await prisma.tracker.findMany({
-    where: { threadId },
+    where: { threadId, userId },
     include: { views: true },
     orderBy: { createdAt: "desc" },
   });
@@ -230,7 +233,12 @@ app.get(
   corsMiddleware,
   ...UseJwt,
   query("threadId").isString(),
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: ExpressJwtRequestUnrequired, res: Response): Promise<void> => {
+    if (!req.auth || !req.auth.sub) {
+      res.status(401).send(JSON.stringify({}));
+      return;
+    }
+
     // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -239,8 +247,9 @@ app.get(
     }
     const data = matchedData(req);
     const threadId = String(data.threadId);
+    const userIdAuth = req.auth.sub;
 
-    const views = await getViewsForTracker(threadId);
+    const views = await getViewsForTracker(threadId, userIdAuth);
 
     if (views === null) {
       res.send(JSON.stringify({ views: null, error_code: "unknown_tracker" }));
@@ -258,7 +267,12 @@ app.get(
   corsMiddleware,
   ...UseJwt,
   query("userId").isUUID(),
-  async (req: Request, res: Response): Promise<void> => {
+  async (req: ExpressJwtRequestUnrequired, res: Response): Promise<void> => {
+    if (!req.auth || !req.auth.sub) {
+      res.status(401).send(JSON.stringify({}));
+      return;
+    }
+
     // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -267,6 +281,12 @@ app.get(
     }
     const data = matchedData(req);
     const userId = data.userId as string;
+
+    const userIdAuth = req.auth.sub;
+    if (userIdAuth !== userId) {
+      res.status(403).json({});
+      return;
+    }
 
     const views = await prisma.view.findMany({
       where: { tracker: { userId } },
