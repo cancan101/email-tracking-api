@@ -399,6 +399,72 @@ app.post(
   }
 );
 
+app.options("/api/v1/login/use-magic", corsMiddleware);
+app.post(
+  "/api/v1/login/use-magic",
+  corsMiddleware,
+  body("token").isString().isUUID(),
+  async (req: Request, res: Response): Promise<void> => {
+    // Finds the validation errors in this request and wraps them in an object with handy functions
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
+
+    const token = req.body.token as string;
+
+    const magicLinkToken = await prisma.magicLinkToken.findFirst({
+      where: { token },
+      include: { user: { select: { email: true, slug: true } } },
+    });
+
+    if (!magicLinkToken) {
+      res.status(400).json({ error_code: "token_invalid" });
+      return;
+    } else if (magicLinkToken.usedAt) {
+      res.status(400).json({ error_code: "token_used" });
+      return;
+    } else if (magicLinkToken.expiresAt < dayjs().toDate()) {
+      res.status(400).json({ error_code: "token_used" });
+      return;
+    }
+
+    await prisma.magicLinkToken.update({
+      where: { id: magicLinkToken.id },
+      data: {
+        usedAt: dayjs().toDate(),
+      },
+    });
+
+    const userId = magicLinkToken.userId;
+    const subject = String(userId);
+    const { email, slug } = magicLinkToken.user;
+
+    const expiresIn = ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60;
+
+    const accessToken = await jsonwebtoken.sign(
+      {},
+      env.JWT_ACCESS_TOKEN_SECRET,
+      {
+        algorithm: JWT_ALGORITHM,
+        expiresIn,
+        subject,
+      }
+    );
+
+    res
+      .status(200)
+      .json({
+        accessToken,
+        expiresIn,
+        emailAccount: email,
+        trackingSlug: slug,
+      });
+    return;
+  }
+);
+
 // TODO(cancan): make this a POST that returns this information.
 // The GET should just be an empty page
 app.get(
