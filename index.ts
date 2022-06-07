@@ -25,7 +25,9 @@ const env = cleanEnv(process.env, {
   JWT_ACCESS_TOKEN_SECRET: str(),
   SENDGRID_API_KEY: str(),
   PORT: port(),
+  // Use the email address or domain you verified
   MAGIC_LINK_FROM_EMAIL: email(),
+  MAGIC_LINK_FROM_NAME: str({ default: undefined }),
   ACCESS_TOKEN_EXPIRES_HOURS: num({ default: 2 }),
   MAGIC_TOKEN_EXPIRES_HOURS: num({ default: 24 }),
 });
@@ -393,7 +395,10 @@ app.post(
 
     const msg = {
       to: user.email,
-      from: env.MAGIC_LINK_FROM_EMAIL, // Use the email address or domain you verified
+      from: {
+        email: env.MAGIC_LINK_FROM_EMAIL,
+        name: env.MAGIC_LINK_FROM_NAME,
+      },
       subject: "Email Tracker",
       text: `Login using: ${loginUrl}`,
       // Don't mangle the URL with tracking:
