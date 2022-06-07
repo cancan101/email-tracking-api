@@ -1,0 +1,57 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String           @id @default(uuid()) @db.Uuid
+  email           String           @unique
+  slug            String           @unique @default(uuid()) @db.Uuid
+  trackers        Tracker[]
+  magicLinkTokens MagicLinkToken[]
+}
+
+model Tracker {
+  id           String   @id @default(uuid()) @db.Uuid
+  createdAt    DateTime @default(now())
+  userId       String   @db.Uuid
+  user         User     @relation(fields: [userId], references: [id])
+  trackId      String   @unique @db.Uuid
+  emailId      String   @unique
+  threadId     String
+  emailSubject String
+  views        View[]
+
+  @@index([userId])
+}
+
+model View {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now())
+  trackId   String   @db.Uuid
+  tracker   Tracker  @relation(fields: [trackId], references: [trackId])
+  clientIp  String
+  userAgent String
+  clientIpGeo Json?
+
+  @@index([createdAt])
+  @@index([trackId])
+}
+
+model MagicLinkToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  createdAt DateTime @default(now())
+  token     String   @unique @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id])
+
+  expiresAt DateTime
+  usedAt    DateTime?
+}
