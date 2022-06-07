@@ -14,7 +14,7 @@ import {
 import jsonwebtoken from "jsonwebtoken";
 import { expressjwt, ExpressJwtRequestUnrequired } from "express-jwt";
 import sgMail from "@sendgrid/mail";
-import { cleanEnv, str, email, port } from "envalid";
+import { cleanEnv, str, email, port, num } from "envalid";
 import fs from "fs";
 
 // -------------------------------------------------
@@ -26,6 +26,8 @@ const env = cleanEnv(process.env, {
   SENDGRID_API_KEY: str(),
   PORT: port(),
   MAGIC_LINK_FROM_EMAIL: email(),
+  ACCESS_TOKEN_EXPIRES_HOURS: num({default: 2}),
+  MAGIC_TOKEN_EXPIRES_HOURS: num({default: 24})
 });
 
 // -------------------------------------------------
@@ -45,9 +47,6 @@ if (!fs.existsSync(transparentGifPath)) {
 }
 
 // -------------------------------------------------
-
-const MAGIC_TOKEN_EXPIRES: number = 7;
-const ACCESS_TOKEN_EXPIRES_HOURS: number = 2;
 
 const GMAIL_ORIGIN: string = "https://mail.google.com";
 
@@ -367,7 +366,7 @@ app.post(
     const magicLinkToken = await prisma.magicLinkToken.create({
       data: {
         userId: user.id,
-        expiresAt: dayjs().add(MAGIC_TOKEN_EXPIRES, "day").toDate(),
+        expiresAt: dayjs().add(env.MAGIC_TOKEN_EXPIRES_HOURS, "hour").toDate(),
       },
     });
 
@@ -441,7 +440,7 @@ app.post(
     const subject = String(userId);
     const { email, slug } = magicLinkToken.user;
 
-    const expiresIn = ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60;
+    const expiresIn = env.ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60;
 
     const accessToken = await jsonwebtoken.sign(
       {},
@@ -453,14 +452,12 @@ app.post(
       }
     );
 
-    res
-      .status(200)
-      .json({
-        accessToken,
-        expiresIn,
-        emailAccount: email,
-        trackingSlug: slug,
-      });
+    res.status(200).json({
+      accessToken,
+      expiresIn,
+      emailAccount: email,
+      trackingSlug: slug,
+    });
     return;
   }
 );
