@@ -280,9 +280,9 @@ app.get(
   }
 );
 
-app.options("/report", corsMiddleware);
+app.options("/api/v1/trackers/", corsMiddleware);
 app.post(
-  "/report",
+  "/api/v1/trackers/",
   corsMiddleware,
   ...UseJwt,
   body("trackId").isString().isUUID(),
@@ -333,9 +333,9 @@ app.get("/logged-in", (req: Request, res: Response): void => {
   return;
 });
 
-app.options("/login/magic", corsMiddleware);
+app.options("/api/v1/login/request-magic", corsMiddleware);
 app.post(
-  "/login/magic",
+  "/api/v1/login/request-magic",
   corsMiddleware,
   body("email").isString().isEmail({ domain_specific_validation: true }),
   async (req: Request, res: Response): Promise<void> => {
