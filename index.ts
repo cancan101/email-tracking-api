@@ -294,7 +294,7 @@ app.get(
       include: { tracker: { select: { threadId: true, emailSubject: true } } },
     });
 
-    res.send(JSON.stringify(views));
+    res.send(JSON.stringify({ data: views }));
     return;
   }
 );
