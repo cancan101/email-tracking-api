@@ -31,7 +31,7 @@
     "envalid": "^7.3.1",
     "express": "^4.18.0",
     "express-jwt": "^7.6.2",
-    "express-validator": "^6.14.0",
+    "express-validator": "^6.14.1",
     "jsonwebtoken": "^8.5.1",
     "ts-node": "^10.8.0"
   },
