@@ -24,7 +24,7 @@
   },
   "homepage": "https://github.com/cancan101/email-tracking-api#readme",
   "dependencies": {
-    "@prisma/client": "^3.13.0",
+    "@prisma/client": "^3.15.0",
     "@sendgrid/mail": "^7.7.0",
     "commander": "^9.2.0",
     "cors": "^2.8.5",
