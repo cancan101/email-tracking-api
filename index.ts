@@ -310,6 +310,7 @@ app.post(
   body("threadId").isString(),
   body("emailId").isString(),
   body("emailSubject").isString(),
+  body("scheduledTimestamp").isInt({ gt: 0 }).optional(),
   async (req: ExpressJwtRequestUnrequired, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).send(JSON.stringify({}));
@@ -323,7 +324,8 @@ app.post(
       return;
     }
     const data = matchedData(req);
-    const { trackId, threadId, emailId, emailSubject } = data;
+    const { trackId, threadId, emailId, emailSubject, scheduledTimestamp } =
+      data;
     if (trackId) {
       const userId = req.auth.sub;
       await prisma.tracker.create({
@@ -333,6 +335,7 @@ app.post(
           threadId,
           emailId,
           emailSubject,
+          scheduledTimestamp: scheduledTimestamp ?? null,
         },
       });
       res.status(201).send(JSON.stringify({}));

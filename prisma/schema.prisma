@@ -19,26 +19,28 @@ model User {
 }
 
 model Tracker {
-  id           String   @id @default(uuid()) @db.Uuid
-  createdAt    DateTime @default(now())
-  userId       String   @db.Uuid
-  user         User     @relation(fields: [userId], references: [id])
-  trackId      String   @unique @db.Uuid
-  emailId      String   @unique
-  threadId     String
-  emailSubject String
-  views        View[]
+  id                 String    @id @default(uuid()) @db.Uuid
+  createdAt          DateTime  @default(now())
+  userId             String    @db.Uuid
+  user               User      @relation(fields: [userId], references: [id])
+  trackId            String    @unique @db.Uuid
+  emailId            String    @unique
+  threadId           String
+  emailSubject       String
+  scheduledTimestamp DateTime? @db.Timestamptz
+
+  views View[]
 
   @@index([userId])
 }
 
 model View {
-  id        String   @id @default(uuid()) @db.Uuid
-  createdAt DateTime @default(now())
-  trackId   String   @db.Uuid
-  tracker   Tracker  @relation(fields: [trackId], references: [trackId])
-  clientIp  String
-  userAgent String
+  id          String   @id @default(uuid()) @db.Uuid
+  createdAt   DateTime @default(now())
+  trackId     String   @db.Uuid
+  tracker     Tracker  @relation(fields: [trackId], references: [trackId])
+  clientIp    String
+  userAgent   String
   clientIpGeo Json?
 
   @@index([createdAt])
