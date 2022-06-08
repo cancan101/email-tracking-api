@@ -335,7 +335,8 @@ app.post(
           threadId,
           emailId,
           emailSubject,
-          scheduledSendAt: scheduledTimestamp && new Date(scheduledTimestamp),
+          scheduledSendAt:
+            scheduledTimestamp == null ? null : new Date(scheduledTimestamp),
         },
       });
       res.status(201).send(JSON.stringify({}));
