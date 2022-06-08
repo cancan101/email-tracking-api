@@ -12,7 +12,7 @@ datasource db {
 
 model User {
   id              String           @id @default(uuid()) @db.Uuid
-  email           String           @unique
+  email           String           @unique @db.Citext
   slug            String           @unique @default(uuid()) @db.Uuid
   trackers        Tracker[]
   magicLinkTokens MagicLinkToken[]
@@ -24,9 +24,9 @@ model Tracker {
   userId             String    @db.Uuid
   user               User      @relation(fields: [userId], references: [id])
   trackId            String    @unique @db.Uuid
-  emailId            String    @unique
-  threadId           String
-  emailSubject       String
+  emailId            String    @unique @db.VarChar
+  threadId           String    @db.VarChar
+  emailSubject       String    @db.VarChar
   scheduledTimestamp DateTime? @db.Timestamptz
 
   views View[]
@@ -39,7 +39,7 @@ model View {
   createdAt   DateTime @default(now())
   trackId     String   @db.Uuid
   tracker     Tracker  @relation(fields: [trackId], references: [trackId])
-  clientIp    String
+  clientIp    String   @db.VarChar
   userAgent   String
   clientIpGeo Json?
 
