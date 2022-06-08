@@ -2,7 +2,7 @@ name: CI
 on:
   push:
     branches: [maine]
-  pull_request: true
+  pull_request:
 jobs:
   build:
     runs-on: ubuntu-latest
