@@ -19,15 +19,15 @@ model User {
 }
 
 model Tracker {
-  id                 String    @id @default(uuid()) @db.Uuid
-  createdAt          DateTime  @default(now()) @db.Timestamptz
-  userId             String    @db.Uuid
-  user               User      @relation(fields: [userId], references: [id])
-  trackId            String    @unique @db.Uuid
-  emailId            String    @unique @db.VarChar
-  threadId           String    @db.VarChar
-  emailSubject       String    @db.VarChar
-  scheduledTimestamp DateTime? @db.Timestamptz
+  id              String    @id @default(uuid()) @db.Uuid
+  createdAt       DateTime  @default(now()) @db.Timestamptz
+  userId          String    @db.Uuid
+  user            User      @relation(fields: [userId], references: [id])
+  trackId         String    @unique @db.Uuid
+  emailId         String    @unique @db.VarChar
+  threadId        String    @db.VarChar
+  emailSubject    String    @db.VarChar
+  scheduledSendAt DateTime? @db.Timestamptz
 
   views View[]
 
