@@ -20,7 +20,7 @@ model User {
 
 model Tracker {
   id                 String    @id @default(uuid()) @db.Uuid
-  createdAt          DateTime  @default(now())
+  createdAt          DateTime  @default(now()) @db.Timestamptz
   userId             String    @db.Uuid
   user               User      @relation(fields: [userId], references: [id])
   trackId            String    @unique @db.Uuid
@@ -36,7 +36,7 @@ model Tracker {
 
 model View {
   id          String   @id @default(uuid()) @db.Uuid
-  createdAt   DateTime @default(now())
+  createdAt   DateTime @default(now()) @db.Timestamptz
   trackId     String   @db.Uuid
   tracker     Tracker  @relation(fields: [trackId], references: [trackId])
   clientIp    String   @db.VarChar
@@ -49,11 +49,11 @@ model View {
 
 model MagicLinkToken {
   id        String   @id @default(uuid()) @db.Uuid
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @db.Timestamptz
   token     String   @unique @default(uuid()) @db.Uuid
   userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id])
 
-  expiresAt DateTime
-  usedAt    DateTime?
+  expiresAt DateTime  @db.Timestamptz
+  usedAt    DateTime? @db.Timestamptz
 }
