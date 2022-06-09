@@ -12,7 +12,7 @@ import {
   param,
 } from "express-validator";
 import jsonwebtoken from "jsonwebtoken";
-import { expressjwt, ExpressJwtRequestUnrequired } from "express-jwt";
+import { expressjwt, Request as JWTRequest } from "express-jwt";
 import sgMail from "@sendgrid/mail";
 import { cleanEnv, str, email, port, num } from "envalid";
 import fs from "fs";
@@ -262,7 +262,7 @@ app.get(
   corsMiddleware,
   ...UseJwt,
   param("threadId").isString(),
-  async (req: ExpressJwtRequestUnrequired, res: Response): Promise<void> => {
+  async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).send(JSON.stringify({}));
       return;
@@ -296,7 +296,7 @@ app.get(
   corsMiddleware,
   ...UseJwt,
   query("userId").isUUID(),
-  async (req: ExpressJwtRequestUnrequired, res: Response): Promise<void> => {
+  async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).send(JSON.stringify({}));
       return;
@@ -338,7 +338,7 @@ app.post(
   body("emailId").isString(),
   body("emailSubject").isString(),
   body("scheduledTimestamp").isInt({ gt: 0 }).optional(),
-  async (req: ExpressJwtRequestUnrequired, res: Response): Promise<void> => {
+  async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).send(JSON.stringify({}));
       return;
