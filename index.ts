@@ -22,6 +22,7 @@ import * as Tracing from "@sentry/tracing";
 // -------------------------------------------------
 
 const app = express();
+const prisma = new PrismaClient();
 
 // -------------------------------------------------
 
@@ -31,6 +32,8 @@ Sentry.init({
     new Sentry.Integrations.Http({ tracing: true }),
     // enable Express.js middleware tracing
     new Tracing.Integrations.Express({ app }),
+
+    new Tracing.Integrations.Prisma({ client: prisma }),
   ],
 
   // Set tracesSampleRate to 1.0 to capture 100%
@@ -81,10 +84,6 @@ if (!fs.existsSync(transparentGifPath)) {
 const GMAIL_ORIGIN: string = "https://mail.google.com";
 
 const JWT_ALGORITHM = "HS256";
-
-// -------------------------------------------------
-
-const prisma = new PrismaClient();
 
 // -------------------------------------------------
 
