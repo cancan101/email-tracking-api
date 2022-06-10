@@ -26,6 +26,22 @@ const prisma = new PrismaClient();
 
 // -------------------------------------------------
 
+dotenv.config();
+
+const env = cleanEnv(process.env, {
+  JWT_ACCESS_TOKEN_SECRET: str(),
+  SENDGRID_API_KEY: str(),
+  PORT: port(),
+  // Use the email address or domain you verified
+  MAGIC_LINK_FROM_EMAIL: email(),
+  MAGIC_LINK_FROM_NAME: str({ default: undefined }),
+  ACCESS_TOKEN_EXPIRES_HOURS: num({ default: 2 }),
+  MAGIC_TOKEN_EXPIRES_HOURS: num({ default: 24 }),
+  SENTRY_TRACES_SAMPLE_RATE: num({ default: 0.05 }),
+});
+
+// -------------------------------------------------
+
 Sentry.init({
   integrations: [
     // enable HTTP calls tracing
@@ -39,7 +55,7 @@ Sentry.init({
   // Set tracesSampleRate to 1.0 to capture 100%
   // of transactions for performance monitoring.
   // We recommend adjusting this value in production
-  tracesSampleRate: 1.0,
+  tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE,
 });
 
 // RequestHandler creates a separate execution context using domains, so that every
@@ -47,21 +63,6 @@ Sentry.init({
 app.use(Sentry.Handlers.requestHandler());
 // TracingHandler creates a trace for every incoming request
 app.use(Sentry.Handlers.tracingHandler());
-
-// -------------------------------------------------
-
-dotenv.config();
-
-const env = cleanEnv(process.env, {
-  JWT_ACCESS_TOKEN_SECRET: str(),
-  SENDGRID_API_KEY: str(),
-  PORT: port(),
-  // Use the email address or domain you verified
-  MAGIC_LINK_FROM_EMAIL: email(),
-  MAGIC_LINK_FROM_NAME: str({ default: undefined }),
-  ACCESS_TOKEN_EXPIRES_HOURS: num({ default: 2 }),
-  MAGIC_TOKEN_EXPIRES_HOURS: num({ default: 24 }),
-});
 
 // -------------------------------------------------
 
