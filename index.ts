@@ -161,8 +161,13 @@ async function processImage(
       if (resp.ok) {
         const clientIpGeoData = await resp.json();
         const isGoogleLlc = clientIpGeoData?.connection?.isp === "Google LLC";
+        // https://developer.apple.com/support/prepare-your-network-for-icloud-private-relay/
+        const isCloudflareInc =
+          clientIpGeoData?.connection?.isp === "Cloudflare, Inc.";
         if (isGoogleLlc) {
           clientIpGeo.rule = "connectionIspGoogleLlc";
+        } else if (isCloudflareInc) {
+          clientIpGeo.rule = "connectionIspCloudflareInc";
         } else {
           clientIpGeo.data = clientIpGeoData;
         }
