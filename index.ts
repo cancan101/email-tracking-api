@@ -14,10 +14,14 @@ import {
 import jsonwebtoken from "jsonwebtoken";
 import { expressjwt, Request as JWTRequest } from "express-jwt";
 import sgMail from "@sendgrid/mail";
-import { cleanEnv, str, email, port, num } from "envalid";
+import { cleanEnv, str, email, port, num, url } from "envalid";
 import fs from "fs";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
+import OAuthServer from "express-oauth-server";
+import { AuthorizationCodeModel, AuthorizationCode, User } from "oauth2-server";
+import bodyParser from "body-parser";
+import cookieSession from "cookie-session";
 
 // -------------------------------------------------
 
@@ -38,6 +42,9 @@ const env = cleanEnv(process.env, {
   ACCESS_TOKEN_EXPIRES_HOURS: num({ default: 2 }),
   MAGIC_TOKEN_EXPIRES_HOURS: num({ default: 24 }),
   SENTRY_TRACES_SAMPLE_RATE: num({ default: 0.05 }),
+  TRUST_PROXY_NUM: num({ default: undefined }),
+  GMAIL_ADDON_REDIRECT_URI: url(),
+  GMAIL_ADDON_CLIENT_ID: str({ default: "GMAIL_ADDON" }),
 });
 
 // -------------------------------------------------
@@ -70,6 +77,22 @@ sgMail.setApiKey(env.SENDGRID_API_KEY);
 
 // -------------------------------------------------
 
+app.use(
+  cookieSession({
+    // TODO: set this to its own
+    secret: env.JWT_ACCESS_TOKEN_SECRET,
+
+    // Cookie Options
+    sameSite: "strict",
+    secure: true,
+    // We use the same expiration here so that the we don't get stale access token
+    // See comments about hacks below with how / when we generate the access token
+    maxAge: env.ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60 * 1000,
+  })
+);
+
+// -------------------------------------------------
+
 // we assume that this is the file run in this location relative to responses directory
 const transparentGifPath = path.join(
   __dirname,
@@ -91,7 +114,8 @@ const JWT_ALGORITHM = "HS256";
 app.use(express.json());
 
 // This is ok on Heroku:
-app.set("trust proxy", ["uniquelocal"]);
+const trust_proxy = env.TRUST_PROXY_NUM ?? ["uniquelocal"];
+app.set("trust proxy", trust_proxy);
 
 const corsOptions = {
   origin: [GMAIL_ORIGIN],
@@ -206,7 +230,6 @@ app.get(
   async (req: Request, res: Response): Promise<void> => {
     res.sendFile(transparentGifPath);
 
-    // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       // Just send the image in this case
@@ -226,7 +249,6 @@ app.get(
   async (req: Request, res: Response): Promise<void> => {
     res.sendFile(transparentGifPath);
 
-    // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       // Just send the image in this case
@@ -273,7 +295,6 @@ app.get(
       return;
     }
 
-    // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
@@ -300,14 +321,13 @@ app.get(
   "/api/v1/views/",
   corsMiddleware,
   ...UseJwt,
-  query("userId").isUUID(),
+  query("userId").isString().isUUID(),
   async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).send(JSON.stringify({}));
       return;
     }
 
-    // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
@@ -349,7 +369,6 @@ app.post(
       return;
     }
 
-    // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
@@ -380,10 +399,96 @@ app.post(
   }
 );
 
-app.get("/magic-login", (req: Request, res: Response): void => {
-  res.status(200).send("Logging in...");
-  return;
-});
+type UserData = {
+  accessToken: string;
+  expiresIn: number;
+  emailAccount: string;
+  trackingSlug: string;
+  emailToken: string;
+};
+
+app.get(
+  "/magic-login",
+  query("token").isString().isUUID(),
+  async (req: Request, res: Response): Promise<void> => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      res.status(400).json({ errors: errors.array() });
+      return;
+    }
+
+    if (req.session == null) {
+      res.status(500);
+      return;
+    }
+
+    const data = matchedData(req);
+    const token = data.token as string;
+
+    const magicLinkToken = await prisma.magicLinkToken.findFirst({
+      where: { token },
+      include: { user: { select: { email: true, slug: true } } },
+    });
+
+    if (!magicLinkToken) {
+      res.status(400).json({ error_code: "token_invalid" });
+      return;
+    } else if (magicLinkToken.usedAt) {
+      res.status(400).json({ error_code: "token_used" });
+      return;
+    } else if (magicLinkToken.expiresAt < dayjs().toDate()) {
+      res.status(400).json({ error_code: "token_used" });
+      return;
+    }
+
+    await prisma.magicLinkToken.update({
+      where: { id: magicLinkToken.id },
+      data: {
+        usedAt: dayjs().toDate(),
+      },
+    });
+
+    // We are creating the access token at login time
+    // and then we safe it off on the session
+    const userId = magicLinkToken.userId;
+    const subject = String(userId);
+    const { email, slug } = magicLinkToken.user;
+
+    const expiresIn = env.ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60;
+
+    const accessToken = await jsonwebtoken.sign(
+      {},
+      env.JWT_ACCESS_TOKEN_SECRET,
+      {
+        algorithm: JWT_ALGORITHM,
+        expiresIn,
+        subject,
+      }
+    );
+
+    const userData: UserData = {
+      accessToken,
+      expiresIn,
+      emailAccount: email,
+      trackingSlug: slug,
+      emailToken: token,
+    };
+
+    const currentUsers = (req.session.users as UserData[] | undefined) ?? [];
+
+    const otherUsers = currentUsers.filter(
+      (currentUser) => currentUser.emailAccount !== userData.emailAccount
+    );
+    req.session.users = [userData, ...otherUsers];
+
+    res.status(200).send("Logging in...");
+
+    // We could do a redirect here to a page that the Chrome extension would use
+    // That way errors are surfaced
+
+    return;
+  }
+);
 
 app.get("/logged-in", (req: Request, res: Response): void => {
   res.status(200).send("You are logged in. You may close this window.");
@@ -458,13 +563,16 @@ app.post(
   }
 );
 
+// The name of this can change now that is just returns the token
+// Also it might not need to be a POST
+// Do we care about allowing this to only be run once?
+// Also a bit weird that we key this off the original email token.
 app.options("/api/v1/login/use-magic", corsMiddleware);
 app.post(
   "/api/v1/login/use-magic",
   corsMiddleware,
   body("token").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
-    // Finds the validation errors in this request and wraps them in an object with handy functions
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       res.status(400).json({ errors: errors.array() });
@@ -473,52 +581,52 @@ app.post(
 
     const token = req.body.token as string;
 
-    const magicLinkToken = await prisma.magicLinkToken.findFirst({
-      where: { token },
-      include: { user: { select: { email: true, slug: true } } },
-    });
-
-    if (!magicLinkToken) {
-      res.status(400).json({ error_code: "token_invalid" });
-      return;
-    } else if (magicLinkToken.usedAt) {
-      res.status(400).json({ error_code: "token_used" });
-      return;
-    } else if (magicLinkToken.expiresAt < dayjs().toDate()) {
-      res.status(400).json({ error_code: "token_used" });
+    if (req.session == null) {
+      res.status(500);
       return;
     }
 
-    await prisma.magicLinkToken.update({
-      where: { id: magicLinkToken.id },
-      data: {
-        usedAt: dayjs().toDate(),
-      },
-    });
-
-    const userId = magicLinkToken.userId;
-    const subject = String(userId);
-    const { email, slug } = magicLinkToken.user;
-
-    const expiresIn = env.ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60;
-
-    const accessToken = await jsonwebtoken.sign(
-      {},
-      env.JWT_ACCESS_TOKEN_SECRET,
-      {
-        algorithm: JWT_ALGORITHM,
-        expiresIn,
-        subject,
-      }
+    // This can be called more than once and just reads off the session
+    // A little hacky
+    const userData = ((req.session.users ?? []) as UserData[]).find(
+      (user) => user.emailToken == token
     );
 
-    res.status(200).json({
-      accessToken,
-      expiresIn,
-      emailAccount: email,
-      trackingSlug: slug,
-    });
+    if (userData === undefined) {
+      res.status(403);
+      return;
+    }
+
+    res.status(200).json(userData);
     return;
+  }
+);
+
+app.post(
+  "/api/v1/me",
+  corsMiddleware,
+  ...UseJwt,
+  async (req: JWTRequest, res: Response): Promise<void> => {
+    if (!req.auth || !req.auth.sub) {
+      res.status(401).send(JSON.stringify({}));
+      return;
+    }
+
+    const user = await prisma.user.findFirst({ where: { id: req.auth.sub } });
+    if (!user) {
+      res.status(403).send(JSON.stringify({}));
+      return;
+    }
+
+    res.send(
+      JSON.stringify({
+        data: {
+          id: user.id,
+          emailAccount: user.email,
+          trackingSlug: user.slug,
+        },
+      })
+    );
   }
 );
 
@@ -526,6 +634,109 @@ app.post(
 app.get("/ping", (req: Request, res: Response): void => {
   res.status(200).send("");
 });
+
+// See https://github.com/oauthjs/node-oauth2-server for specification
+const OAuthServerModel: AuthorizationCodeModel = {
+  getClient: async (clientId, clientSecret) => {
+    console.log(clientId, clientSecret);
+    return {
+      id: env.GMAIL_ADDON_CLIENT_ID,
+      grants: ["authorization_code"],
+      redirectUris: [env.GMAIL_ADDON_REDIRECT_URI],
+      accessTokenLifetime: 1,
+      refreshTokenLifetime: 1,
+    };
+  },
+  generateAccessToken: async (client, user, scope) => {
+    return user.accessToken;
+  },
+  getAuthorizationCode: async (
+    authorizationCode
+  ): Promise<AuthorizationCode> => {
+    console.log("getAuthorizationCode");
+    // do verify
+    const data = jsonwebtoken.decode(authorizationCode);
+    if (data === null || typeof data === "string") {
+      throw Error();
+    }
+    const { client, user, expiresAt: expiresAtNum, redirectUri } = data;
+    console.log(data);
+
+    return {
+      authorizationCode,
+      client,
+      user,
+      expiresAt: new Date(expiresAtNum),
+      redirectUri,
+    };
+  },
+  revokeAuthorizationCode: async () => {
+    console.log("revokeAuthorizationCode");
+
+    return true;
+  },
+  verifyScope: async (): Promise<never> => {
+    //https://oauth2-server.readthedocs.io/en/latest/model/spec.html#verifyscope-accesstoken-scope-callback
+    throw Error();
+  },
+  saveAuthorizationCode: async (
+    code,
+    client,
+    user
+  ): Promise<AuthorizationCode> => {
+    // console.log("saveAuthorizationCode", "x", code, "x", user, client);
+    const authorizationCode = await jsonwebtoken.sign(
+      {
+        redirectUri: code.redirectUri,
+        expiresAt: code.expiresAt.getTime(),
+        client,
+        user,
+      },
+      env.JWT_ACCESS_TOKEN_SECRET,
+      {
+        algorithm: JWT_ALGORITHM,
+        // expiresIn,
+        // subject,
+      }
+    );
+    return {
+      ...code,
+      authorizationCode,
+      client,
+      user,
+    };
+  },
+  getAccessToken: async (accessToken): Promise<never> => {
+    //https://oauth2-server.readthedocs.io/en/latest/model/spec.html#getaccesstoken-accesstoken-callback
+    throw Error();
+  },
+  saveToken: async (token, client, user) => {
+    console.log("saveToken");
+    return { accessToken: token.accessToken, client, user };
+  },
+};
+
+const oauth = new OAuthServer({
+  model: OAuthServerModel,
+  // remove this for prod
+  useErrorHandler: true,
+  authenticateHandler: {
+    handle: (request: Request, response: Response): User => {
+      // console.log(request.query);
+      // TODO use the correct one here
+      // maybe return all and handle elsewhere
+      return request.session?.users?.[0] || {};
+    },
+  },
+});
+
+app.get("/o/oauth2/auth", oauth.authorize());
+app.post(
+  "/o/oauth2/token",
+  bodyParser.json(),
+  bodyParser.urlencoded({ extended: false }),
+  oauth.token()
+);
 
 // The error handler must be before any other error middleware and after all controllers
 app.use(Sentry.Handlers.errorHandler());
