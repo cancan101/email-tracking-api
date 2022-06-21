@@ -638,11 +638,11 @@ app.get("/ping", (req: Request, res: Response): void => {
 // See https://github.com/oauthjs/node-oauth2-server for specification
 const OAuthServerModel: AuthorizationCodeModel = {
   getClient: async (clientId, clientSecret) => {
-    console.log(clientId, clientSecret);
     return {
       id: env.GMAIL_ADDON_CLIENT_ID,
       grants: ["authorization_code"],
       redirectUris: [env.GMAIL_ADDON_REDIRECT_URI],
+      // Figure out what these should be:
       accessTokenLifetime: 1,
       refreshTokenLifetime: 1,
     };
@@ -653,7 +653,6 @@ const OAuthServerModel: AuthorizationCodeModel = {
   getAuthorizationCode: async (
     authorizationCode
   ): Promise<AuthorizationCode> => {
-    console.log("getAuthorizationCode");
     // do verify
     const data = jsonwebtoken.decode(authorizationCode);
     if (data === null || typeof data === "string") {
@@ -671,20 +670,19 @@ const OAuthServerModel: AuthorizationCodeModel = {
     };
   },
   revokeAuthorizationCode: async () => {
-    console.log("revokeAuthorizationCode");
-
+    // we can't currently revoke as this is stateless
     return true;
   },
   verifyScope: async (): Promise<never> => {
     //https://oauth2-server.readthedocs.io/en/latest/model/spec.html#verifyscope-accesstoken-scope-callback
     throw Error();
   },
+  // we should use a real auth code and not this BS
   saveAuthorizationCode: async (
     code,
     client,
     user
   ): Promise<AuthorizationCode> => {
-    // console.log("saveAuthorizationCode", "x", code, "x", user, client);
     const authorizationCode = await jsonwebtoken.sign(
       {
         redirectUri: code.redirectUri,
@@ -695,6 +693,7 @@ const OAuthServerModel: AuthorizationCodeModel = {
       env.JWT_ACCESS_TOKEN_SECRET,
       {
         algorithm: JWT_ALGORITHM,
+        // Should we track any of these?
         // expiresIn,
         // subject,
       }
