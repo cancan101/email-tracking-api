@@ -490,6 +490,13 @@ app.get(
   }
 );
 
+// this logouts from everything
+app.get("/logout", (req: Request, res: Response): void => {
+  req.session = null;
+  // <script>setTimeout(function() { top.window.close() }, 1);</script>
+  res.status(200).send("You are logged out. You may close this window.");
+});
+
 app.get("/logged-in", (req: Request, res: Response): void => {
   res.status(200).send("You are logged in. You may close this window.");
   return;
@@ -722,15 +729,42 @@ const oauth = new OAuthServer({
   useErrorHandler: true,
   authenticateHandler: {
     handle: (request: Request, response: Response): User => {
-      // console.log(request.query);
-      // TODO use the correct one here
-      // maybe return all and handle elsewhere
-      return request.session?.users?.[0] || {};
+      // just bomb here if this is bad as we are checking upstream
+      return response.locals.login_hint_user;
     },
   },
 });
 
-app.get("/o/oauth2/auth", oauth.authorize());
+app.get(
+  "/o/oauth2/auth",
+  query("login_hint").isString().isEmail({ domain_specific_validation: true }),
+  (request, response, next) => {
+    const errors = validationResult(request);
+    if (!errors.isEmpty()) {
+      response.status(400).json({ errors: errors.array() });
+      return;
+    }
+    const data = matchedData(request);
+    const login_hint = data.login_hint as string;
+
+    if (request.session == null) {
+      response.status(500);
+      return;
+    }
+
+    const login_hint_user = ((request.session.users ?? []) as UserData[]).find(
+      (user) => user.emailAccount == login_hint
+    );
+
+    if (login_hint_user === undefined) {
+      response.send("You are not currently logged in");
+      return;
+    }
+    response.locals.login_hint_user = login_hint_user;
+    next();
+  },
+  oauth.authorize()
+);
 app.post(
   "/o/oauth2/token",
   bodyParser.json(),
