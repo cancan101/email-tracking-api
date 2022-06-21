@@ -653,13 +653,13 @@ const OAuthServerModel: AuthorizationCodeModel = {
   getAuthorizationCode: async (
     authorizationCode
   ): Promise<AuthorizationCode> => {
-    // do verify
+    // here we just parse the jwt that send out
+    // we should verify
     const data = jsonwebtoken.decode(authorizationCode);
     if (data === null || typeof data === "string") {
       throw Error();
     }
     const { client, user, expiresAt: expiresAtNum, redirectUri } = data;
-    console.log(data);
 
     return {
       authorizationCode,
@@ -710,7 +710,8 @@ const OAuthServerModel: AuthorizationCodeModel = {
     throw Error();
   },
   saveToken: async (token, client, user) => {
-    console.log("saveToken");
+    // no need to save if we are using jwt accessToken
+    // we can't send anything extra here at least the lib on google doesn't support
     return { accessToken: token.accessToken, client, user };
   },
 };
