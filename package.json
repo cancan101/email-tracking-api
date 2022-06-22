@@ -38,7 +38,7 @@
     "envalid": "^7.3.1",
     "express": "^4.18.1",
     "express-jwt": "^7.7.5",
-    "express-oauth-server": "node-oauth/express-oauth-server#710e55c31fa08ce8413a12aab7bc4995c18d0691",
+    "express-oauth-server": "node-oauth/express-oauth-server",
     "express-validator": "^6.14.2",
     "jsonwebtoken": "^8.5.1",
     "ts-node": "^10.8.1"
