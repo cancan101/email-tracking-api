@@ -244,7 +244,7 @@ const getViewsForTracker = async (
   userId: string
 ): Promise<null | View[]> => {
   const trackers = await prisma.tracker.findMany({
-    where: { threadId, userId },
+    where: { userId, threadId },
     include: { views: true },
     orderBy: { createdAt: "desc" },
   });

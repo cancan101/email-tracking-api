@@ -32,6 +32,7 @@ model Tracker {
   views View[]
 
   @@index([userId])
+  @@index([userId, threadId])
 }
 
 model View {
