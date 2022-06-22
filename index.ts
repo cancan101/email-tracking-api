@@ -35,6 +35,7 @@ dotenv.config();
 
 const env = cleanEnv(process.env, {
   JWT_ACCESS_TOKEN_SECRET: str(),
+  COOKIE_SESSION_SECRET: str(),
   SENDGRID_API_KEY: str(),
   PORT: port(),
   // Use the email address or domain you verified
@@ -81,8 +82,7 @@ sgMail.setApiKey(env.SENDGRID_API_KEY);
 
 app.use(
   cookieSession({
-    // TODO: set this to its own
-    secret: env.JWT_ACCESS_TOKEN_SECRET,
+    secret: env.COOKIE_SESSION_SECRET,
 
     // Cookie Options
     sameSite: "strict",
@@ -451,7 +451,7 @@ app.get(
     });
 
     // We are creating the access token at login time
-    // and then we safe it off on the session
+    // and then we save it off on the session
     const userId = magicLinkToken.userId;
     const subject = String(userId);
     const { email, slug } = magicLinkToken.user;
@@ -473,6 +473,7 @@ app.get(
       expiresIn,
       emailAccount: email,
       trackingSlug: slug,
+      // warty to track this:
       emailToken: token,
     };
 
@@ -769,6 +770,8 @@ app.get(
       return;
     }
 
+    // use the query param `login_hint` to to identify the user
+    // this is a "silent" auth in that we don't prompt the user for anything
     const login_hint_user = ((request.session.users ?? []) as UserData[]).find(
       (user) => user.emailAccount == login_hint
     );
@@ -777,6 +780,7 @@ app.get(
       response.send("You are not currently logged in");
       return;
     }
+
     response.locals.login_hint_user = login_hint_user;
     next();
   },
