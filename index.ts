@@ -22,6 +22,7 @@ import OAuthServer from "express-oauth-server";
 import { AuthorizationCodeModel, AuthorizationCode, User } from "oauth2-server";
 import bodyParser from "body-parser";
 import cookieSession from "cookie-session";
+import crypto from "crypto";
 
 // -------------------------------------------------
 
@@ -44,7 +45,8 @@ const env = cleanEnv(process.env, {
   SENTRY_TRACES_SAMPLE_RATE: num({ default: 0.05 }),
   TRUST_PROXY_NUM: num({ default: undefined }),
   GMAIL_ADDON_REDIRECT_URI: url(),
-  GMAIL_ADDON_CLIENT_ID: str({ default: "GMAIL_ADDON" }),
+  GMAIL_ADDON_CLIENT_ID: str({ devDefault: "CLIENT_ID" }),
+  GMAIL_ADDON_CLIENT_SECRET: str({ devDefault: "CLIENT_SECRET" }),
 });
 
 // -------------------------------------------------
@@ -644,14 +646,29 @@ app.get("/ping", (req: Request, res: Response): void => {
 
 // See https://github.com/oauthjs/node-oauth2-server for specification
 const OAuthServerModel: AuthorizationCodeModel = {
-  getClient: async (clientId, clientSecret) => {
+  getClient: async (clientId: string, clientSecret?: string) => {
+    if (clientId !== env.GMAIL_ADDON_CLIENT_ID) {
+      return null;
+    }
+    if (
+      clientSecret &&
+      env.GMAIL_ADDON_CLIENT_SECRET.length !== clientSecret.length
+    )
+      return null;
+
+    if (
+      clientSecret &&
+      !crypto.timingSafeEqual(
+        Buffer.from(env.GMAIL_ADDON_CLIENT_SECRET),
+        Buffer.from(clientSecret)
+      )
+    )
+      return null;
+
     return {
       id: env.GMAIL_ADDON_CLIENT_ID,
       grants: ["authorization_code"],
       redirectUris: [env.GMAIL_ADDON_REDIRECT_URI],
-      // Figure out what these should be:
-      accessTokenLifetime: 1,
-      refreshTokenLifetime: 1,
     };
   },
   generateAccessToken: async (client, user, scope) => {
