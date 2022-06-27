@@ -1,5 +1,4 @@
 import express, { Request, Response, NextFunction } from "express";
-import dotenv from "dotenv";
 import path from "path";
 import cors from "cors";
 import { PrismaClient, Prisma, View } from "@prisma/client";
@@ -14,7 +13,6 @@ import {
 import jsonwebtoken from "jsonwebtoken";
 import { expressjwt, Request as JWTRequest } from "express-jwt";
 import sgMail from "@sendgrid/mail";
-import { cleanEnv, str, email, port, num, url } from "envalid";
 import fs from "fs";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
@@ -23,32 +21,14 @@ import { AuthorizationCodeModel, AuthorizationCode, User } from "oauth2-server";
 import bodyParser from "body-parser";
 import cookieSession from "cookie-session";
 import crypto from "crypto";
+import sentryTunnelHandler from "./sentry-tunnel";
+
+import env from "./settings";
 
 // -------------------------------------------------
 
 const app = express();
 const prisma = new PrismaClient();
-
-// -------------------------------------------------
-
-dotenv.config();
-
-const env = cleanEnv(process.env, {
-  JWT_ACCESS_TOKEN_SECRET: str(),
-  COOKIE_SESSION_SECRET: str(),
-  SENDGRID_API_KEY: str(),
-  PORT: port(),
-  // Use the email address or domain you verified
-  MAGIC_LINK_FROM_EMAIL: email(),
-  MAGIC_LINK_FROM_NAME: str({ default: undefined }),
-  ACCESS_TOKEN_EXPIRES_HOURS: num({ default: 2 }),
-  MAGIC_TOKEN_EXPIRES_HOURS: num({ default: 24 }),
-  SENTRY_TRACES_SAMPLE_RATE: num({ default: 0.05 }),
-  TRUST_PROXY_NUM: num({ default: undefined }),
-  GMAIL_ADDON_REDIRECT_URI: url(),
-  GMAIL_ADDON_CLIENT_ID: str({ devDefault: "CLIENT_ID" }),
-  GMAIL_ADDON_CLIENT_SECRET: str({ devDefault: "CLIENT_SECRET" }),
-});
 
 // -------------------------------------------------
 
@@ -645,6 +625,14 @@ app.get("/ping", (req: Request, res: Response): void => {
   res.status(200).send("");
 });
 
+app.options("/api/v1/stunnel", corsMiddleware);
+app.post(
+  "/api/v1/stunnel",
+  corsMiddleware,
+  express.text(),
+  sentryTunnelHandler
+);
+
 // See https://github.com/oauthjs/node-oauth2-server for specification
 const OAuthServerModel: AuthorizationCodeModel = {
   getClient: async (clientId: string, clientSecret?: string) => {
@@ -786,6 +774,7 @@ app.get(
 );
 app.post(
   "/o/oauth2/token",
+  // We might not need some of these since we have the json middleware in place
   bodyParser.json(),
   bodyParser.urlencoded({ extended: false }),
   oauth.token()
