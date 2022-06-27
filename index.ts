@@ -743,8 +743,6 @@ const OAuthServerModel: AuthorizationCodeModel = {
 
 const oauth = new OAuthServer({
   model: OAuthServerModel,
-  // remove this for prod
-  useErrorHandler: true,
   authenticateHandler: {
     handle: (request: Request, response: Response): User => {
       // just bomb here if this is bad as we are checking upstream
