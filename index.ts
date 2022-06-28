@@ -18,7 +18,6 @@ import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
 import OAuthServer from "express-oauth-server";
 import { AuthorizationCodeModel, AuthorizationCode, User } from "oauth2-server";
-import bodyParser from "body-parser";
 import cookieSession from "cookie-session";
 import crypto from "crypto";
 import sentryTunnelHandler from "./sentry-tunnel";
@@ -774,9 +773,7 @@ app.get(
 );
 app.post(
   "/o/oauth2/token",
-  // We might not need some of these since we have the json middleware in place
-  bodyParser.json(),
-  bodyParser.urlencoded({ extended: false }),
+  express.urlencoded({ extended: false }),
   oauth.token()
 );
 
