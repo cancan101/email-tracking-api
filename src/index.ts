@@ -177,7 +177,9 @@ async function processImage(
           clientIpGeo.data = clientIpGeoData;
         }
       }
-    } catch {}
+    } catch (error) {
+      Sentry.captureException(error);
+    }
   }
 
   try {
@@ -195,6 +197,7 @@ async function processImage(
       if (error.code === "P2003") {
         console.log("Unknown tracker requested", trackId);
       } else {
+        Sentry.captureException(error);
         console.error(error);
       }
     } else {
@@ -541,6 +544,8 @@ app.post(
       // TODO(cancan101): option to mock this (merge with log above)
       await sgMail.send(msg);
     } catch (error: any) {
+      Sentry.captureException(error);
+
       console.error(error);
 
       if (error.response) {
