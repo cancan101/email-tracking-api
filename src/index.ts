@@ -77,7 +77,7 @@ app.use(
 // we assume that this is the file run in this location relative to responses directory
 const transparentGifPath = path.join(
   __dirname,
-  "./responses",
+  "../responses",
   "transparent.gif"
 );
 if (!fs.existsSync(transparentGifPath)) {
