@@ -487,10 +487,12 @@ app.get("/logged-in", (req: Request, res: Response): void => {
   return;
 });
 
-app.options("/api/v1/login/request-magic", corsMiddleware);
+const ROUTE_LOGIN_REQUEST_MAGIC = "/api/v1/login/request-magic";
+app.options(ROUTE_LOGIN_REQUEST_MAGIC, corsMiddleware);
 app.post(
-  "/api/v1/login/request-magic",
+  ROUTE_LOGIN_REQUEST_MAGIC,
   corsMiddleware,
+  express.urlencoded({ extended: false }),
   body("email").isString().isEmail({ domain_specific_validation: true }),
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -767,7 +769,13 @@ app.get(
     );
 
     if (login_hint_user === undefined) {
-      response.send("You are not currently logged in");
+      const errorContents =
+        `You are not currently logged in as: ${login_hint}` +
+        `<form enctype="application/x-www-form-urlencoded" method="post" action="${ROUTE_LOGIN_REQUEST_MAGIC}">` +
+        `<input type="hidden" name="email" value="${login_hint}">` +
+        `<input type="submit" value="Login">` +
+        `</form>`;
+      response.send(errorContents);
       return;
     }
 
