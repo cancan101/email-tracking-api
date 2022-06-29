@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,22 +11,21 @@ model User {
   id              String           @id @default(uuid()) @db.Uuid
   email           String           @unique @db.Citext
   slug            String           @unique @default(uuid()) @db.Uuid
-  trackers        Tracker[]
   magicLinkTokens MagicLinkToken[]
+  trackers        Tracker[]
 }
 
 model Tracker {
   id              String    @id @default(uuid()) @db.Uuid
-  createdAt       DateTime  @default(now()) @db.Timestamptz
-  userId          String    @db.Uuid
-  user            User      @relation(fields: [userId], references: [id])
   trackId         String    @unique @db.Uuid
   emailId         String    @unique @db.VarChar
+  userId          String    @db.Uuid
   threadId        String    @db.VarChar
+  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
   emailSubject    String    @db.VarChar
-  scheduledSendAt DateTime? @db.Timestamptz
-
-  views View[]
+  scheduledSendAt DateTime? @db.Timestamptz(6)
+  user            User      @relation(fields: [userId], references: [id])
+  views           View[]
 
   @@index([userId])
   @@index([userId, threadId])
@@ -37,24 +33,23 @@ model Tracker {
 
 model View {
   id          String   @id @default(uuid()) @db.Uuid
-  createdAt   DateTime @default(now()) @db.Timestamptz
-  trackId     String   @db.Uuid
-  tracker     Tracker  @relation(fields: [trackId], references: [trackId])
   clientIp    String   @db.VarChar
   userAgent   String
+  trackId     String   @db.Uuid
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
   clientIpGeo Json?
+  tracker     Tracker  @relation(fields: [trackId], references: [trackId])
 
   @@index([createdAt])
   @@index([trackId])
 }
 
 model MagicLinkToken {
-  id        String   @id @default(uuid()) @db.Uuid
-  createdAt DateTime @default(now()) @db.Timestamptz
-  token     String   @unique @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id])
-
-  expiresAt DateTime  @db.Timestamptz
-  usedAt    DateTime? @db.Timestamptz
+  id        String    @id @default(uuid()) @db.Uuid
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  token     String    @unique @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  expiresAt DateTime  @db.Timestamptz(6)
+  usedAt    DateTime? @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id])
 }
