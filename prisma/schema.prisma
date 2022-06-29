@@ -24,6 +24,7 @@ model Tracker {
   createdAt       DateTime  @default(now()) @db.Timestamptz(6)
   emailSubject    String    @db.VarChar
   scheduledSendAt DateTime? @db.Timestamptz(6)
+  clientIp        String?   @db.VarChar
   user            User      @relation(fields: [userId], references: [id])
   views           View[]
 
