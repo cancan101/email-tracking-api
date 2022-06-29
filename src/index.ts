@@ -358,11 +358,18 @@ app.post(
       res.status(400).json({ errors: errors.array() });
       return;
     }
+
     const data = matchedData(req);
     const { trackId, threadId, emailId, emailSubject, scheduledTimestamp } =
       data;
+
     if (trackId) {
       const userId = req.auth.sub;
+      const clientIp = req.ip;
+
+      const scheduledSendAt =
+        scheduledTimestamp == null ? null : new Date(scheduledTimestamp);
+
       await prisma.tracker.create({
         data: {
           userId,
@@ -370,8 +377,8 @@ app.post(
           threadId,
           emailId,
           emailSubject,
-          scheduledSendAt:
-            scheduledTimestamp == null ? null : new Date(scheduledTimestamp),
+          scheduledSendAt,
+          clientIp,
         },
       });
       res.status(201).send(JSON.stringify({}));
