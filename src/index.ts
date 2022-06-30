@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import path from "path";
 import cors from "cors";
-import { PrismaClient, Prisma, View } from "@prisma/client";
+import { PrismaClient, Prisma, View, Tracker } from "@prisma/client";
 import dayjs from "dayjs";
 import {
   query,
@@ -259,8 +259,33 @@ const getViewsForTracker = async (
     return null;
   }
 
+  const cleanViews = (tracker: Tracker & { views: View[] }): View[] => {
+    if (
+      // we only clean when selfLoadMitigation===false (ie not null)
+      tracker.selfLoadMitigation !== false ||
+      // and there is at least one view
+      tracker.views.length === 0
+    ) {
+      return tracker.views;
+    }
+
+    // sorted desc so last should be first to happen
+    const firstView = tracker.views[tracker.views.length - 1];
+    const timeFromTrackToViewSec = dayjs(firstView.createdAt).diff(
+      dayjs(tracker.createdAt),
+      "second",
+      true
+    );
+
+    // TODO: const this
+    if (timeFromTrackToViewSec < 10) {
+      return tracker.views.slice(0, -1);
+    }
+    return tracker.views;
+  };
+
   const views = trackers
-    .flatMap((tracker) => tracker.views)
+    .flatMap((tracker) => cleanViews(tracker))
     // since we are not getting this from db due to flatmap
     .sort((a, b) => -(a.createdAt.getTime() - b.createdAt.getTime()));
 
@@ -331,6 +356,8 @@ app.get(
       orderBy: { createdAt: "desc" },
       include: { tracker: { select: { threadId: true, emailSubject: true } } },
     });
+
+    //TODO: filter out self views here
 
     res.send(JSON.stringify({ data: views }));
     return;
