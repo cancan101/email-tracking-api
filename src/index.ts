@@ -251,7 +251,8 @@ const getViewsForTracker = async (
 ): Promise<null | View[]> => {
   const trackers = await prisma.tracker.findMany({
     where: { userId, threadId },
-    include: { views: true },
+    // meed to sort the nested views
+    include: { views: { orderBy: { createdAt: "desc" } } },
     orderBy: { createdAt: "desc" },
   });
 
