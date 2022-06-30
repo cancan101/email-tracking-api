@@ -16,17 +16,18 @@ model User {
 }
 
 model Tracker {
-  id              String    @id @default(uuid()) @db.Uuid
-  trackId         String    @unique @db.Uuid
-  emailId         String    @unique @db.VarChar
-  userId          String    @db.Uuid
-  threadId        String    @db.VarChar
-  createdAt       DateTime  @default(now()) @db.Timestamptz(6)
-  emailSubject    String    @db.VarChar
-  scheduledSendAt DateTime? @db.Timestamptz(6)
-  clientIp        String?   @db.VarChar
-  user            User      @relation(fields: [userId], references: [id])
-  views           View[]
+  id                 String    @id @default(uuid()) @db.Uuid
+  trackId            String    @unique @db.Uuid
+  emailId            String    @unique @db.VarChar
+  userId             String    @db.Uuid
+  threadId           String    @db.VarChar
+  createdAt          DateTime  @default(now()) @db.Timestamptz(6)
+  emailSubject       String    @db.VarChar
+  scheduledSendAt    DateTime? @db.Timestamptz(6)
+  clientIp           String?   @db.VarChar
+  selfLoadMitigation Boolean?
+  user               User      @relation(fields: [userId], references: [id])
+  views              View[]
 
   @@index([userId])
   @@index([userId, threadId])
