@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from "express";
 import path from "path";
-import cors from "cors";
+import cors, { CorsOptions } from "cors";
 import { PrismaClient, Prisma, View, Tracker } from "@prisma/client";
 import dayjs from "dayjs";
 import {
@@ -98,8 +98,10 @@ app.use(express.json());
 const trust_proxy = env.TRUST_PROXY_NUM ?? ["uniquelocal"];
 app.set("trust proxy", trust_proxy);
 
-const corsOptions = {
+const CORS_MAX_AGE_SEC = 1 * 60 * 60;
+const corsOptions: CorsOptions = {
   origin: [GMAIL_ORIGIN],
+  maxAge: CORS_MAX_AGE_SEC,
 };
 
 const corsMiddleware = cors(corsOptions);
