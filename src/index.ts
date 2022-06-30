@@ -347,6 +347,7 @@ app.post(
   body("emailId").isString(),
   body("emailSubject").isString(),
   body("scheduledTimestamp").isInt({ gt: 0 }).optional(),
+  body("selfLoadMitigation").isBoolean().optional(),
   async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).send(JSON.stringify({}));
@@ -360,8 +361,14 @@ app.post(
     }
 
     const data = matchedData(req);
-    const { trackId, threadId, emailId, emailSubject, scheduledTimestamp } =
-      data;
+    const {
+      trackId,
+      threadId,
+      emailId,
+      emailSubject,
+      scheduledTimestamp,
+      selfLoadMitigation,
+    } = data;
 
     if (trackId) {
       const userId = req.auth.sub;
@@ -379,6 +386,7 @@ app.post(
           emailSubject,
           scheduledSendAt,
           clientIp,
+          selfLoadMitigation,
         },
       });
       res.status(201).send(JSON.stringify({}));
