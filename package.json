@@ -40,7 +40,7 @@
     "express-oauth-server": "node-oauth/express-oauth-server",
     "express-validator": "^6.14.2",
     "jsonwebtoken": "^8.5.1",
-    "ts-node": "^10.8.1"
+    "ts-node": "^10.9.1"
   },
   "devDependencies": {
     "@types/cookie-session": "^2.0.44",
