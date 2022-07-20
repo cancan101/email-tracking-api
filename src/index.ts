@@ -162,7 +162,10 @@ async function processImage(
   const isProxiedYahoo =
     userAgent !== undefined && userAgent.includes("YahooMailProxy");
 
-  const isProxied = isProxiedGoogle || isProxiedYahoo;
+  const isProxiedFront =
+    userAgent !== undefined && userAgent.includes("FrontApp.com ImageProxy");
+
+  const isProxied = isProxiedGoogle || isProxiedYahoo || isProxiedFront;
 
   if (isProxied) {
     clientIpGeo = { source: "userAgent" };
@@ -172,10 +175,13 @@ async function processImage(
       clientIpGeo = { source: "ipwhois" };
       if (resp.ok) {
         const clientIpGeoData = await resp.json();
-        const isGoogleLlc = clientIpGeoData?.connection?.isp === "Google LLC";
+
+        const isp = clientIpGeoData?.connection?.isp;
+
+        const isGoogleLlc = isp === "Google LLC";
         // https://developer.apple.com/support/prepare-your-network-for-icloud-private-relay/
-        const isCloudflareInc =
-          clientIpGeoData?.connection?.isp === "Cloudflare, Inc.";
+        const isCloudflareInc = isp === "Cloudflare, Inc.";
+
         if (isGoogleLlc) {
           clientIpGeo.rule = "connectionIspGoogleLlc";
         } else if (isCloudflareInc) {
