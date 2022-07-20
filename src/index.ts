@@ -144,7 +144,76 @@ type ClientIpGeo = {
   source: string;
   data?: object;
   rule?: string;
+  secondary?: ClientIpGeo;
 };
+
+async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
+  let clientIpGeo: ClientIpGeo | null = null;
+  const resp = await fetchWithTimeout(`http://ipwho.is/${clientIp}`);
+  clientIpGeo = { source: "ipwhois" };
+  if (resp.ok) {
+    const clientIpGeoData = await resp.json();
+
+    const isp = clientIpGeoData?.connection?.isp;
+
+    const isGoogleLlc = isp === "Google LLC";
+    // https://developer.apple.com/support/prepare-your-network-for-icloud-private-relay/
+    const isCloudflareInc = isp === "Cloudflare, Inc.";
+
+    if (isGoogleLlc) {
+      clientIpGeo.rule = "connectionIspGoogleLlc";
+    } else if (isCloudflareInc) {
+      clientIpGeo.rule = "connectionIspCloudflareInc";
+    } else {
+      clientIpGeo.data = clientIpGeoData;
+    }
+  } else {
+    const respJson = await resp.json();
+    Sentry.captureException(
+      new Error(
+        `Unable to fetch IP geo data ${resp.status}: ${JSON.stringify(
+          respJson
+        )}`
+      )
+    );
+  }
+  return clientIpGeo;
+}
+
+async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
+  let clientIpGeo: ClientIpGeo | null = null;
+  const resp = await fetchWithTimeout(
+    `http://ip-api.com/json/${clientIp}?fields=status,message,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,isp,org,as,asname,mobile,proxy,hosting`
+  );
+  clientIpGeo = { source: "ip-api" };
+  if (resp.ok) {
+    const clientIpGeoData = await resp.json();
+
+    const isp = clientIpGeoData?.isp;
+
+    const isGoogleLlc = isp === "Google LLC";
+    // https://developer.apple.com/support/prepare-your-network-for-icloud-private-relay/
+    const isCloudflareInc = isp === "Cloudflare, Inc.";
+
+    if (isGoogleLlc) {
+      clientIpGeo.rule = "connectionIspGoogleLlc";
+    } else if (isCloudflareInc) {
+      clientIpGeo.rule = "connectionIspCloudflareInc";
+    } else {
+      clientIpGeo.data = clientIpGeoData;
+    }
+  } else {
+    const respJson = await resp.json();
+    Sentry.captureException(
+      new Error(
+        `Unable to fetch IP geo data ${resp.status}: ${JSON.stringify(
+          respJson
+        )}`
+      )
+    );
+  }
+  return clientIpGeo;
+}
 
 async function processImage(
   trackId: string,
@@ -171,33 +240,12 @@ async function processImage(
     clientIpGeo = { source: "userAgent" };
   } else {
     try {
-      const resp = await fetchWithTimeout(`http://ipwho.is/${clientIp}`);
-      clientIpGeo = { source: "ipwhois" };
-      if (resp.ok) {
-        const clientIpGeoData = await resp.json();
-
-        const isp = clientIpGeoData?.connection?.isp;
-
-        const isGoogleLlc = isp === "Google LLC";
-        // https://developer.apple.com/support/prepare-your-network-for-icloud-private-relay/
-        const isCloudflareInc = isp === "Cloudflare, Inc.";
-
-        if (isGoogleLlc) {
-          clientIpGeo.rule = "connectionIspGoogleLlc";
-        } else if (isCloudflareInc) {
-          clientIpGeo.rule = "connectionIspCloudflareInc";
-        } else {
-          clientIpGeo.data = clientIpGeoData;
-        }
+      clientIpGeo = await lookupIpwhois(clientIp);
+      const clientIpGeoSecondary = await lookupIpApi(clientIp);
+      if (clientIpGeo === null) {
+        clientIpGeo = clientIpGeoSecondary;
       } else {
-        const respJson = await resp.json();
-        Sentry.captureException(
-          new Error(
-            `Unable to fetch IP geo data ${resp.status}: ${JSON.stringify(
-              respJson
-            )}`
-          )
-        );
+        clientIpGeo.secondary = clientIpGeoSecondary ?? undefined;
       }
     } catch (error) {
       Sentry.captureException(error);
