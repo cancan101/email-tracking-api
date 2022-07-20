@@ -152,6 +152,7 @@ type ClientIpGeo = {
   dataRaw?: object;
   rule?: string;
   secondary?: ClientIpGeo;
+  emailProvider?: string;
 };
 
 async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
@@ -171,6 +172,7 @@ async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
 
     if (isGoogleLlc) {
       clientIpGeo.rule = "connectionIspGoogleLlc";
+      clientIpGeo.emailProvider = "Gmail";
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
     } else {
@@ -214,6 +216,7 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
 
     if (isGoogleLlc) {
       clientIpGeo.rule = "connectionIspGoogleLlc";
+      clientIpGeo.emailProvider = "Gmail";
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
     } else if (isICloudPrivateRelay) {
@@ -260,7 +263,16 @@ async function processImage(
   const isProxied = isProxiedGoogle || isProxiedYahoo || isProxiedFront;
 
   if (isProxied) {
-    clientIpGeo = { source: "userAgent" };
+    let emailProvider = undefined;
+    if (isProxiedGoogle) {
+      emailProvider = "Gmail";
+    } else if (isProxiedYahoo) {
+      emailProvider = "Yahoo";
+    } else if (isProxiedFront) {
+      emailProvider = "FrontApp";
+    }
+
+    clientIpGeo = { source: "userAgent", emailProvider };
   } else {
     try {
       clientIpGeo = await lookupIpwhois(clientIp);
