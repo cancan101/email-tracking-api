@@ -156,12 +156,17 @@ async function processImage(
 
   let clientIpGeo: ClientIpGeo | null = null;
 
-  const isProxied =
-    userAgent !== undefined &&
-    (userAgent.includes("YahooMailProxy") ||
-      userAgent.includes("GoogleImageProxy"));
+  const isProxiedGoogle =
+    userAgent !== undefined && userAgent.includes("GoogleImageProxy");
 
-  if (userAgent === undefined || !isProxied) {
+  const isProxiedYahoo =
+    userAgent !== undefined && userAgent.includes("YahooMailProxy");
+
+  const isProxied = isProxiedGoogle || isProxiedYahoo;
+
+  if (isProxied) {
+    clientIpGeo = { source: "userAgent" };
+  } else {
     try {
       const resp = await fetchWithTimeout(`http://ipwho.is/${clientIp}`);
       clientIpGeo = { source: "ipwhois" };
@@ -178,6 +183,15 @@ async function processImage(
         } else {
           clientIpGeo.data = clientIpGeoData;
         }
+      } else {
+        const respJson = await resp.json();
+        Sentry.captureException(
+          new Error(
+            `Unable to fetch IP geo data ${resp.status}: ${JSON.stringify(
+              respJson
+            )}`
+          )
+        );
       }
     } catch (error) {
       Sentry.captureException(error);
