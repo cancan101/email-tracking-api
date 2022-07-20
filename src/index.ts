@@ -155,6 +155,10 @@ type ClientIpGeo = {
   emailProvider?: string;
 };
 
+const EMAIL_PROVIDER_GMAIL = "Gmail";
+const EMAIL_PROVIDER_YAHOO = "Yahoo";
+const EMAIL_PROVIDER_FRONT_APP = "FrontApp";
+
 async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
   let clientIpGeo: ClientIpGeo | null = null;
   const resp = await fetchWithTimeout(`http://ipwho.is/${clientIp}`);
@@ -172,7 +176,7 @@ async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
 
     if (isGoogleLlc) {
       clientIpGeo.rule = "connectionIspGoogleLlc";
-      clientIpGeo.emailProvider = "Gmail";
+      clientIpGeo.emailProvider = EMAIL_PROVIDER_GMAIL;
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
     } else {
@@ -216,7 +220,7 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
 
     if (isGoogleLlc) {
       clientIpGeo.rule = "connectionIspGoogleLlc";
-      clientIpGeo.emailProvider = "Gmail";
+      clientIpGeo.emailProvider = EMAIL_PROVIDER_GMAIL;
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
     } else if (isICloudPrivateRelay) {
@@ -265,11 +269,11 @@ async function processImage(
   if (isProxied) {
     let emailProvider = undefined;
     if (isProxiedGoogle) {
-      emailProvider = "Gmail";
+      emailProvider = EMAIL_PROVIDER_GMAIL;
     } else if (isProxiedYahoo) {
-      emailProvider = "Yahoo";
+      emailProvider = EMAIL_PROVIDER_YAHOO;
     } else if (isProxiedFront) {
-      emailProvider = "FrontApp";
+      emailProvider = EMAIL_PROVIDER_FRONT_APP;
     }
 
     clientIpGeo = { source: "userAgent", emailProvider };
