@@ -245,7 +245,7 @@ async function processImage(
       if (clientIpGeo === null) {
         clientIpGeo = clientIpGeoSecondary;
       } else {
-        clientIpGeo.secondary = clientIpGeoSecondary;
+        clientIpGeo.secondary = clientIpGeoSecondary ?? undefined;
       }
     } catch (error) {
       Sentry.captureException(error);
