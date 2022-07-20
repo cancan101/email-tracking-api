@@ -140,9 +140,16 @@ async function fetchWithTimeout(
   return response;
 }
 
+type GeoData = {
+  city: string;
+  region: string;
+  isMobile?: boolean;
+};
+
 type ClientIpGeo = {
   source: string;
-  data?: object;
+  data?: GeoData;
+  dataRaw?: object;
   rule?: string;
   secondary?: ClientIpGeo;
 };
@@ -153,6 +160,8 @@ async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
   clientIpGeo = { source: "ipwhois" };
   if (resp.ok) {
     const clientIpGeoData = await resp.json();
+
+    clientIpGeo.dataRaw = clientIpGeoData;
 
     const isp = clientIpGeoData?.connection?.isp;
 
@@ -165,7 +174,10 @@ async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
     } else {
-      clientIpGeo.data = clientIpGeoData;
+      clientIpGeo.data = {
+        city: clientIpGeoData.city,
+        region: clientIpGeoData.region,
+      };
     }
   } else {
     const respJson = await resp.json();
@@ -189,18 +201,29 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
   if (resp.ok) {
     const clientIpGeoData = await resp.json();
 
+    clientIpGeo.dataRaw = clientIpGeoData;
+
     const isp = clientIpGeoData?.isp;
 
     const isGoogleLlc = isp === "Google LLC";
     // https://developer.apple.com/support/prepare-your-network-for-icloud-private-relay/
     const isCloudflareInc = isp === "Cloudflare, Inc.";
 
+    const org = clientIpGeoData?.org;
+    const isICloudPrivateRelay = org === "iCloud Private Relay";
+
     if (isGoogleLlc) {
       clientIpGeo.rule = "connectionIspGoogleLlc";
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
+    } else if (isICloudPrivateRelay) {
+      clientIpGeo.rule = "orgICloudPrivateRelay";
     } else {
-      clientIpGeo.data = clientIpGeoData;
+      clientIpGeo.data = {
+        city: clientIpGeoData.city as string,
+        region: clientIpGeoData.region as string,
+        isMobile: clientIpGeoData.mobile as boolean,
+      };
     }
   } else {
     const respJson = await resp.json();
