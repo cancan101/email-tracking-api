@@ -214,6 +214,10 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
 
     clientIpGeo.dataRaw = clientIpGeoData;
 
+    if (clientIpGeoData.status !== "success") {
+      return clientIpGeo;
+    }
+
     const isp = clientIpGeoData?.isp;
 
     const isGoogleLlc = isp === "Google LLC";
