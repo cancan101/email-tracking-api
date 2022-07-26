@@ -288,8 +288,8 @@ async function processImage(
     clientIpGeo = { source: "userAgent", emailProvider };
   } else {
     try {
-      clientIpGeo = await lookupIpwhois(clientIp);
-      const clientIpGeoSecondary = await lookupIpApi(clientIp);
+      clientIpGeo = await lookupIpApi(clientIp);
+      const clientIpGeoSecondary = await lookupIpwhois(clientIp);
       if (clientIpGeo === null) {
         clientIpGeo = clientIpGeoSecondary;
       } else {
