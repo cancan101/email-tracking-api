@@ -168,6 +168,11 @@ async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
 
     clientIpGeo.dataRaw = clientIpGeoData;
 
+    // e.g. rate limited
+    if (!clientIpGeoData.success) {
+      return clientIpGeo;
+    }
+
     const isp = clientIpGeoData?.connection?.isp;
 
     const isGoogleLlc = isp === "Google LLC";
