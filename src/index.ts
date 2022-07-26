@@ -214,6 +214,10 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
 
     clientIpGeo.dataRaw = clientIpGeoData;
 
+    if (clientIpGeoData.status !== "success") {
+      return clientIpGeo;
+    }
+
     const isp = clientIpGeoData?.isp;
 
     const isGoogleLlc = isp === "Google LLC";
@@ -284,8 +288,8 @@ async function processImage(
     clientIpGeo = { source: "userAgent", emailProvider };
   } else {
     try {
-      clientIpGeo = await lookupIpwhois(clientIp);
-      const clientIpGeoSecondary = await lookupIpApi(clientIp);
+      clientIpGeo = await lookupIpApi(clientIp);
+      const clientIpGeoSecondary = await lookupIpwhois(clientIp);
       if (clientIpGeo === null) {
         clientIpGeo = clientIpGeoSecondary;
       } else {
