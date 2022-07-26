@@ -237,8 +237,8 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
       clientIpGeo.emailProvider = EMAIL_PROVIDER_APPLE_MAIL;
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
-      // This was originally icloud.
-      // TODO: we can probably kill it now that we can explicitly detect
+      // This is probably icloud.
+      // TODO: resolve to icloud vs not
     } else {
       clientIpGeo.data = {
         city: clientIpGeoData.city as string,
