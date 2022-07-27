@@ -152,12 +152,14 @@ type ClientIpGeo = {
   dataRaw?: object;
   rule?: string;
   secondary?: ClientIpGeo;
+  // TODO: rename this to emailClient, etc
   emailProvider?: string;
 };
 
 const EMAIL_PROVIDER_GMAIL = "Gmail";
 const EMAIL_PROVIDER_YAHOO = "Yahoo";
 const EMAIL_PROVIDER_FRONT_APP = "FrontApp";
+const EMAIL_PROVIDER_APPLE_MAIL = "Apple Mail";
 
 async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
   let clientIpGeo: ClientIpGeo | null = null;
@@ -230,10 +232,13 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
     if (isGoogleLlc) {
       clientIpGeo.rule = "connectionIspGoogleLlc";
       clientIpGeo.emailProvider = EMAIL_PROVIDER_GMAIL;
-    } else if (isCloudflareInc) {
-      clientIpGeo.rule = "connectionIspCloudflareInc";
     } else if (isICloudPrivateRelay) {
       clientIpGeo.rule = "orgICloudPrivateRelay";
+      clientIpGeo.emailProvider = EMAIL_PROVIDER_APPLE_MAIL;
+    } else if (isCloudflareInc) {
+      clientIpGeo.rule = "connectionIspCloudflareInc";
+      // This is probably icloud.
+      // TODO: resolve to icloud vs not
     } else {
       clientIpGeo.data = {
         city: clientIpGeoData.city as string,
