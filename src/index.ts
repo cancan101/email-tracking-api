@@ -235,6 +235,11 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
     } else if (isICloudPrivateRelay) {
       clientIpGeo.rule = "orgICloudPrivateRelay";
       clientIpGeo.emailProvider = EMAIL_PROVIDER_APPLE_MAIL;
+      // The data should be reliable here
+      clientIpGeo.data = {
+        city: clientIpGeoData.city,
+        region: clientIpGeoData.region,
+      };
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
       // This is probably icloud.
