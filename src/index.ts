@@ -160,6 +160,7 @@ const EMAIL_PROVIDER_GMAIL = "Gmail";
 const EMAIL_PROVIDER_YAHOO = "Yahoo";
 const EMAIL_PROVIDER_FRONT_APP = "FrontApp";
 const EMAIL_PROVIDER_APPLE_MAIL = "Apple Mail";
+const EMAIL_PROVIDER_SUPERHUMAN = "Superhuman";
 
 async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
   let clientIpGeo: ClientIpGeo | null = null;
@@ -283,7 +284,11 @@ async function processImage(
   const isProxiedFront =
     userAgent !== undefined && userAgent.includes("FrontApp.com ImageProxy");
 
-  const isProxied = isProxiedGoogle || isProxiedYahoo || isProxiedFront;
+  const isProxiedSuperhuman =
+    userAgent !== undefined && userAgent === "Superhuman";
+
+  const isProxied =
+    isProxiedGoogle || isProxiedYahoo || isProxiedFront || isProxiedSuperhuman;
 
   if (isProxied) {
     let emailProvider = undefined;
@@ -293,6 +298,8 @@ async function processImage(
       emailProvider = EMAIL_PROVIDER_YAHOO;
     } else if (isProxiedFront) {
       emailProvider = EMAIL_PROVIDER_FRONT_APP;
+    } else if (isProxiedSuperhuman) {
+      emailProvider = EMAIL_PROVIDER_SUPERHUMAN;
     }
 
     clientIpGeo = { source: "userAgent", emailProvider };
