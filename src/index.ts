@@ -143,6 +143,9 @@ async function fetchWithTimeout(
 type GeoData = {
   city: string;
   region: string;
+  regionCode: string;
+  country: string;
+  countryCode: string;
   isMobile?: boolean;
 };
 
@@ -189,8 +192,11 @@ async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
       clientIpGeo.rule = "connectionIspCloudflareInc";
     } else {
       clientIpGeo.data = {
-        city: clientIpGeoData.city,
-        region: clientIpGeoData.region,
+        city: clientIpGeoData.city as string,
+        region: clientIpGeoData.region as string,
+        regionCode: clientIpGeoData.region_code as string,
+        country: clientIpGeoData.country as string,
+        countryCode: clientIpGeoData.country_code as string,
       };
     }
   } else {
@@ -238,8 +244,12 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
       clientIpGeo.emailProvider = EMAIL_PROVIDER_APPLE_MAIL;
       // The data should be reliable here
       clientIpGeo.data = {
-        city: clientIpGeoData.city,
-        region: clientIpGeoData.region,
+        //TODO: factor this out as a helper:
+        city: clientIpGeoData.city as string,
+        region: clientIpGeoData.regionName as string,
+        regionCode: clientIpGeoData.region as string,
+        country: clientIpGeoData.country as string,
+        countryCode: clientIpGeoData.countryCode as string,
       };
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
@@ -248,7 +258,10 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
     } else {
       clientIpGeo.data = {
         city: clientIpGeoData.city as string,
-        region: clientIpGeoData.region as string,
+        region: clientIpGeoData.regionName as string,
+        regionCode: clientIpGeoData.region as string,
+        country: clientIpGeoData.country as string,
+        countryCode: clientIpGeoData.countryCode as string,
         isMobile: clientIpGeoData.mobile as boolean,
       };
     }
