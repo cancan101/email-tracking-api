@@ -5,8 +5,8 @@
   "main": "src/index.ts",
   "scripts": {
     "build": "npx tsc --noEmit",
-    "start": "ts-node --transpile-only src/index.ts",
-    "dev": "NODE_ENV=development nodemon src/index.ts",
+    "start": "ts-node --files --transpile-only src/index.ts",
+    "dev": "NODE_ENV=development nodemon --files src/index.ts",
     "test": "npm run lint",
     "add-user": "ts-node scripts/add_user.ts",
     "prepare": "husky install",
