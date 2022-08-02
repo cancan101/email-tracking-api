@@ -1,5 +1,7 @@
 import * as Sentry from "@sentry/node";
 
+import { fetchWithTimeout } from "./utils";
+
 // -------------------------------------------------
 
 const EMAIL_PROVIDER_GMAIL = "Gmail";

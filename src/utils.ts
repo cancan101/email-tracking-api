@@ -1,4 +1,4 @@
-async function fetchWithTimeout(
+export async function fetchWithTimeout(
   resource: RequestInfo,
   options: RequestInit & { timeout?: number } = {}
 ) {
