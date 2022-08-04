@@ -27,8 +27,8 @@
     "@node-oauth/oauth2-server": "^4.2.0",
     "@prisma/client": "^4.1.1",
     "@sendgrid/mail": "^7.7.0",
-    "@sentry/tracing": "^7.8.1",
     "@sentry/node": "^7.8.1",
+    "@sentry/tracing": "^7.8.1",
     "commander": "^9.4.0",
     "cookie-session": "^2.0.0",
     "cors": "^2.8.5",
@@ -39,6 +39,7 @@
     "express-jwt": "^7.7.5",
     "express-oauth-server": "node-oauth/express-oauth-server",
     "express-validator": "^6.14.2",
+    "ip-cidr": "^3.0.10",
     "jsonwebtoken": "^8.5.1",
     "ts-node": "^10.9.1"
   },
