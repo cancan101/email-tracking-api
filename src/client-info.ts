@@ -158,6 +158,7 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
       const iCloudEgressEntry = await getICloudEgressEntry(clientIp);
       if (iCloudEgressEntry !== null) {
         clientIpGeo.rule = "connectionIspCloudflareInc-icloud";
+        clientIpGeo.emailProvider = EMAIL_PROVIDER_APPLE_MAIL;
         clientIpGeo.data = {
           city: iCloudEgressEntry.cityName,
           countryCode: iCloudEgressEntry.countryCode,
