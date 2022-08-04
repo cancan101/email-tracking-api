@@ -1,6 +1,12 @@
 import * as Sentry from "@sentry/node";
+import IPCIDR from "ip-cidr";
 
 import { fetchWithTimeout } from "./utils";
+
+// -------------------------------------------------
+
+const ICLOUD_EGRESS_IP_RANGES =
+  "https://mask-api.icloud.com/egress-ip-ranges.csv";
 
 // -------------------------------------------------
 
@@ -9,6 +15,57 @@ const EMAIL_PROVIDER_YAHOO = "Yahoo";
 const EMAIL_PROVIDER_FRONT_APP = "FrontApp";
 const EMAIL_PROVIDER_APPLE_MAIL = "Apple Mail";
 const EMAIL_PROVIDER_SUPERHUMAN = "Superhuman";
+
+// -------------------------------------------------
+
+type ICloudEgressDatum = {
+  cidr: IPCIDR;
+  countryCode: string;
+  regionCodeWithCountry: string;
+  cityName: string;
+};
+
+let iCloudEgressDataCache: ICloudEgressDatum[] | undefined = undefined;
+
+async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
+  if (iCloudEgressDataCache !== undefined) {
+    return iCloudEgressDataCache;
+  }
+
+  const response = await fetchWithTimeout(ICLOUD_EGRESS_IP_RANGES);
+  if (!response.ok) {
+    return null;
+  }
+  const responseText = await response.text();
+
+  const lines = responseText.split("\n");
+
+  const iCloudEgressData = lines.map((line) => {
+    let l = line.split(",");
+
+    return {
+      cidr: new IPCIDR(l[0]),
+      countryCode: l[1],
+      regionCodeWithCountry: l[2],
+      cityName: l[3],
+    };
+  });
+  iCloudEgressDataCache = iCloudEgressData;
+  return iCloudEgressData;
+}
+
+async function getICloudEgressEntry(
+  clientIp: string
+): Promise<ICloudEgressDatum | null> {
+  const iCloudEgressData = await getICloudEgressData();
+  if (iCloudEgressData === null) {
+    return null;
+  }
+  const iCloudEgressEntry = iCloudEgressData.find((entry) =>
+    entry.cidr.contains(clientIp)
+  );
+  return iCloudEgressEntry ?? null;
+}
 
 async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
   let clientIpGeo: ClientIpGeo | null = null;
@@ -98,8 +155,15 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
       };
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
-      // This is probably icloud.
-      // TODO: resolve to icloud vs not
+      const iCloudEgressEntry = await getICloudEgressEntry(clientIp);
+      if (iCloudEgressEntry !== null) {
+        clientIpGeo.rule = "connectionIspCloudflareInc-icloud";
+        clientIpGeo.data = {
+          city: iCloudEgressEntry.cityName,
+          countryCode: iCloudEgressEntry.countryCode,
+          regionCode: iCloudEgressEntry.regionCodeWithCountry.split("-")[1],
+        };
+      }
     } else {
       clientIpGeo.data = {
         city: clientIpGeoData.city as string,
