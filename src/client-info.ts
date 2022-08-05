@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/node";
 import IPCIDR from "ip-cidr";
 
 import { fetchWithTimeout } from "./utils";
+import type { ClientIpGeo } from "./types";
 
 // -------------------------------------------------
 
@@ -54,7 +55,7 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
   return iCloudEgressData;
 }
 
-async function getICloudEgressEntry(
+export async function getICloudEgressEntry(
   clientIp: string
 ): Promise<ICloudEgressDatum | null> {
   const iCloudEgressData = await getICloudEgressData();

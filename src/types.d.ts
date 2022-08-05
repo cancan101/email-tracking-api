@@ -1,4 +1,4 @@
-type GeoData = {
+export type GeoData = {
   city: string;
   region?: string;
   regionCode: string;
@@ -7,7 +7,7 @@ type GeoData = {
   isMobile?: boolean;
 };
 
-type ClientIpGeo = {
+export type ClientIpGeo = {
   source: string;
   data?: GeoData;
   dataRaw?: object;
