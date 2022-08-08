@@ -34,7 +34,7 @@ async function run() {
       records.push({
         cidr: new IPCIDR(l[0]).address,
         countryCode: l[1],
-        regionCodeWithCountry: l[2],
+        regionCodeWithCountry: l[2].split("-")[1],
         cityName: l[3],
       });
     },
@@ -50,5 +50,5 @@ async function run() {
 
 run().then((records: undefined | any[]) => {
   console.log("done", records && records.length);
-  //   while (true) {}
+  while (true) {}
 });
