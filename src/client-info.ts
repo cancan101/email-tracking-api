@@ -47,7 +47,7 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
     return {
       cidr: new IPCIDR(l[0]).address,
       countryCode: l[1],
-      regionCodeWithCountry: l[2],
+      regionCodeWithCountry: l[2].split("-")[1],
       cityName: l[3],
     };
   });
