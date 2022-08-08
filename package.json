@@ -8,8 +8,8 @@
     "start": "ts-node --files --transpile-only src/index.ts",
     "dev": "NODE_ENV=development nodemon --files src/index.ts",
     "test": "npm run lint",
-    "add-user": "ts-node scripts/add_user.ts",
-    "lookup-icloud-ip": "ts-node scripts/lookup_icloud_ip.ts",
+    "add-user": "ts-node --files --transpile-only  scripts/add_user.ts",
+    "lookup-icloud-ip": "ts-node --files --transpile-only scripts/lookup_icloud_ip.ts",
     "prepare": "husky install",
     "lint": "npx prettier --check ."
   },
