@@ -20,9 +20,9 @@ const EMAIL_PROVIDER_SUPERHUMAN = "Superhuman";
 // -------------------------------------------------
 
 type ICloudEgressDatum = {
-  cidr: IPCIDR;
+  cidr: IPCIDR.Address;
   countryCode: string;
-  regionCodeWithCountry: string;
+  regionCode: string;
   cityName: string;
 };
 
@@ -32,7 +32,27 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
   if (iCloudEgressDataCache !== undefined) {
     return iCloudEgressDataCache;
   }
+  const iCloudEgressData = await getICloudEgressDataRaw2();
+  if (iCloudEgressData === null) {
+    return null;
+  }
+  console.log(iCloudEgressData.length, "Records loaded from Apple");
+  iCloudEgressDataCache = iCloudEgressData;
+  return iCloudEgressData;
+}
 
+function parseLine(line: string): ICloudEgressDatum {
+  const l = line.split(",");
+
+  return {
+    cidr: new IPCIDR(l[0]).address,
+    countryCode: l[1],
+    regionCode: l[2].split("-")[1],
+    cityName: l[3],
+  };
+}
+
+async function getICloudEgressDataRaw(): Promise<ICloudEgressDatum[] | null> {
   const response = await fetchWithTimeout(ICLOUD_EGRESS_IP_RANGES);
   if (!response.ok) {
     return null;
@@ -41,18 +61,50 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
 
   const lines = responseText.split("\n");
 
-  const iCloudEgressData = lines.map((line) => {
-    let l = line.split(",");
-
-    return {
-      cidr: new IPCIDR(l[0]),
-      countryCode: l[1],
-      regionCodeWithCountry: l[2],
-      cityName: l[3],
-    };
-  });
-  iCloudEgressDataCache = iCloudEgressData;
+  const iCloudEgressData = lines.map(parseLine);
   return iCloudEgressData;
+}
+
+async function getICloudEgressDataRaw2(): Promise<ICloudEgressDatum[] | null> {
+  const response = await fetchWithTimeout(ICLOUD_EGRESS_IP_RANGES);
+  if (!response.ok) {
+    return null;
+  }
+  if (!response.body) {
+    return null;
+  }
+
+  const records: ICloudEgressDatum[] = [];
+  const saver = new WritableStream<string>({
+    write(data, controller) {
+      records.push(parseLine(data));
+    },
+  });
+
+  const lineDecoder = new TransformStream<string, string>({
+    start(controller) {
+      this.partialChunk = "";
+    },
+    transform(chunk, controller) {
+      const normalisedData = this.partialChunk + chunk;
+      const chunks = normalisedData.split("\n");
+      this.partialChunk = chunks.pop()!;
+      for (const chunk of chunks) {
+        controller.enqueue(chunk);
+      }
+    },
+    flush(controller) {
+      controller.enqueue(this.partialChunk);
+      this.partialChunk = "";
+    },
+  } as Transformer<string, string> & { partialChunk: string });
+
+  await response.body
+    .pipeThrough(new TextDecoderStream())
+    .pipeThrough(lineDecoder)
+    .pipeTo(saver);
+
+  return records;
 }
 
 export async function getICloudEgressEntry(
@@ -62,8 +114,9 @@ export async function getICloudEgressEntry(
   if (iCloudEgressData === null) {
     return null;
   }
+  const clientIpAddress = IPCIDR.createAddress(clientIp);
   const iCloudEgressEntry = iCloudEgressData.find((entry) =>
-    entry.cidr.contains(clientIp)
+    clientIpAddress.isInSubnet(entry.cidr)
   );
   return iCloudEgressEntry ?? null;
 }
@@ -156,17 +209,16 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
       };
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
-      //   Uncomment this once we resolve the RAM issue:
-      //   const iCloudEgressEntry = await getICloudEgressEntry(clientIp);
-      //   if (iCloudEgressEntry !== null) {
-      //     clientIpGeo.rule = "connectionIspCloudflareInc-icloud";
-      //     clientIpGeo.emailProvider = EMAIL_PROVIDER_APPLE_MAIL;
-      //     clientIpGeo.data = {
-      //       city: iCloudEgressEntry.cityName,
-      //       countryCode: iCloudEgressEntry.countryCode,
-      //       regionCode: iCloudEgressEntry.regionCodeWithCountry.split("-")[1],
-      //     };
-      //   }
+      const iCloudEgressEntry = await getICloudEgressEntry(clientIp);
+      if (iCloudEgressEntry !== null) {
+        clientIpGeo.rule = "connectionIspCloudflareInc-icloud";
+        clientIpGeo.emailProvider = EMAIL_PROVIDER_APPLE_MAIL;
+        clientIpGeo.data = {
+          city: iCloudEgressEntry.cityName,
+          countryCode: iCloudEgressEntry.countryCode,
+          regionCode: iCloudEgressEntry.regionCode,
+        };
+      }
     } else {
       clientIpGeo.data = {
         city: clientIpGeoData.city as string,
