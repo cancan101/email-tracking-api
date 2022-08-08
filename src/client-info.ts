@@ -209,17 +209,16 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
       };
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
-      //   Uncomment this once we resolve the RAM issue:
-      //   const iCloudEgressEntry = await getICloudEgressEntry(clientIp);
-      //   if (iCloudEgressEntry !== null) {
-      //     clientIpGeo.rule = "connectionIspCloudflareInc-icloud";
-      //     clientIpGeo.emailProvider = EMAIL_PROVIDER_APPLE_MAIL;
-      //     clientIpGeo.data = {
-      //       city: iCloudEgressEntry.cityName,
-      //       countryCode: iCloudEgressEntry.countryCode,
-      //       regionCode: iCloudEgressEntry.regionCode,
-      //     };
-      //   }
+      const iCloudEgressEntry = await getICloudEgressEntry(clientIp);
+      if (iCloudEgressEntry !== null) {
+        clientIpGeo.rule = "connectionIspCloudflareInc-icloud";
+        clientIpGeo.emailProvider = EMAIL_PROVIDER_APPLE_MAIL;
+        clientIpGeo.data = {
+          city: iCloudEgressEntry.cityName,
+          countryCode: iCloudEgressEntry.countryCode,
+          regionCode: iCloudEgressEntry.regionCode,
+        };
+      }
     } else {
       clientIpGeo.data = {
         city: clientIpGeoData.city as string,
