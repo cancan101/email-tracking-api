@@ -50,5 +50,5 @@ async function run() {
 
 run().then((records: undefined | any[]) => {
   console.log("done", records && records.length);
-  while (true) {}
+  //   while (true) {}
 });
