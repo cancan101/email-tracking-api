@@ -20,7 +20,7 @@ const EMAIL_PROVIDER_SUPERHUMAN = "Superhuman";
 // -------------------------------------------------
 
 type ICloudEgressDatum = {
-  cidr: IPCIDR;
+  cidr: IPCIDR.Address;
   countryCode: string;
   regionCodeWithCountry: string;
   cityName: string;
@@ -45,7 +45,7 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
     let l = line.split(",");
 
     return {
-      cidr: new IPCIDR(l[0]),
+      cidr: new IPCIDR(l[0]).address,
       countryCode: l[1],
       regionCodeWithCountry: l[2],
       cityName: l[3],
@@ -62,8 +62,9 @@ export async function getICloudEgressEntry(
   if (iCloudEgressData === null) {
     return null;
   }
+  const clientIpAddress = IPCIDR.createAddress(clientIp);
   const iCloudEgressEntry = iCloudEgressData.find((entry) =>
-    entry.cidr.contains(clientIp)
+    clientIpAddress.isInSubnet(entry.cidr)
   );
   return iCloudEgressEntry ?? null;
 }
