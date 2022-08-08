@@ -32,10 +32,11 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
   if (iCloudEgressDataCache !== undefined) {
     return iCloudEgressDataCache;
   }
-  const iCloudEgressData = await getICloudEgressDataRaw();
+  const iCloudEgressData = await getICloudEgressDataRaw2();
   if (iCloudEgressData === null) {
     return null;
   }
+  console.log(iCloudEgressData.length, "Records loaded from Apple");
   iCloudEgressDataCache = iCloudEgressData;
   return iCloudEgressData;
 }
@@ -62,6 +63,50 @@ async function getICloudEgressDataRaw(): Promise<ICloudEgressDatum[] | null> {
 
   const iCloudEgressData = lines.map(parseLine);
   return iCloudEgressData;
+}
+
+async function getICloudEgressDataRaw2(): Promise<ICloudEgressDatum[] | null> {
+  const response = await fetchWithTimeout(ICLOUD_EGRESS_IP_RANGES);
+  if (!response.ok) {
+    return null;
+  }
+  if (!response.body) {
+    return null;
+  }
+
+  const records: ICloudEgressDatum[] = [];
+  const saver = new WritableStream<string>({
+    write(data, controller) {
+      records.push(parseLine(data));
+    },
+  });
+
+  const decoderInfo = {
+    partialChunk: "",
+    transform(
+      chunk: string,
+      controller: TransformStreamDefaultController<string>
+    ) {
+      const normalisedData = this.partialChunk + chunk;
+      const chunks = normalisedData.split("\n");
+      this.partialChunk = chunks.pop()!;
+      for (const chunk of chunks) {
+        controller.enqueue(chunk);
+      }
+    },
+    flush(controller: TransformStreamDefaultController<string>) {
+      controller.enqueue(this.partialChunk);
+      this.partialChunk = "";
+    },
+  };
+  const lineDecoder = new TransformStream<string, string>(decoderInfo);
+
+  await response.body
+    .pipeThrough(new TextDecoderStream())
+    .pipeThrough(lineDecoder)
+    .pipeTo(saver);
+
+  return records;
 }
 
 export async function getICloudEgressEntry(
