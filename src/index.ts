@@ -254,7 +254,7 @@ app.get(
   param("threadId").isString(),
   async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
-      res.status(401).send(JSON.stringify({}));
+      res.status(401).json({});
       return;
     }
 
@@ -287,7 +287,7 @@ app.get(
   query("userId").isString().isUUID(),
   async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
-      res.status(401).send(JSON.stringify({}));
+      res.status(401).json({});
       return;
     }
 
@@ -331,7 +331,7 @@ app.post(
   body("selfLoadMitigation").isBoolean().optional(),
   async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
-      res.status(401).send(JSON.stringify({}));
+      res.status(401).json({});
       return;
     }
 
@@ -370,10 +370,10 @@ app.post(
           selfLoadMitigation,
         },
       });
-      res.status(201).send(JSON.stringify({}));
+      res.status(201).json({});
       return;
     } else {
-      res.status(400).send(JSON.stringify({}));
+      res.status(400).json({});
       return;
     }
   }
@@ -398,7 +398,7 @@ app.get(
     }
 
     if (req.session == null) {
-      res.status(500);
+      res.status(500).json({});
       return;
     }
 
@@ -503,7 +503,7 @@ app.post(
     const host = req.get("Host");
 
     // From here on out, just return 200
-    res.status(200).send(JSON.stringify({}));
+    res.status(200).json({});
 
     const data = matchedData(req);
 
@@ -574,10 +574,9 @@ app.post(
     const token = req.body.token as string;
 
     if (req.session == null) {
-      res.status(500);
+      res.status(500).json({});
       return;
     }
-
     // This can be called more than once and just reads off the session
     // A little hacky
     const userData = ((req.session.users ?? []) as UserData[]).find(
@@ -585,7 +584,7 @@ app.post(
     );
 
     if (userData === undefined) {
-      res.status(403);
+      res.status(403).json({});
       return;
     }
 
@@ -600,13 +599,13 @@ app.post(
   ...UseJwt,
   async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
-      res.status(401).send(JSON.stringify({}));
+      res.status(401).json({});
       return;
     }
 
     const user = await prisma.user.findFirst({ where: { id: req.auth.sub } });
     if (!user) {
-      res.status(403).send(JSON.stringify({}));
+      res.status(403).json({});
       return;
     }
 
@@ -754,7 +753,7 @@ app.get(
     const login_hint = data.login_hint as string;
 
     if (request.session == null) {
-      response.status(500);
+      response.status(500).json({});
       return;
     }
 
