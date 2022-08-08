@@ -40,6 +40,17 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
   return iCloudEgressData;
 }
 
+function parseLine(line: string): ICloudEgressDatum {
+  const l = line.split(",");
+
+  return {
+    cidr: new IPCIDR(l[0]).address,
+    countryCode: l[1],
+    regionCode: l[2].split("-")[1],
+    cityName: l[3],
+  };
+}
+
 async function getICloudEgressDataRaw(): Promise<ICloudEgressDatum[] | null> {
   const response = await fetchWithTimeout(ICLOUD_EGRESS_IP_RANGES);
   if (!response.ok) {
@@ -49,16 +60,7 @@ async function getICloudEgressDataRaw(): Promise<ICloudEgressDatum[] | null> {
 
   const lines = responseText.split("\n");
 
-  const iCloudEgressData = lines.map((line) => {
-    let l = line.split(",");
-
-    return {
-      cidr: new IPCIDR(l[0]).address,
-      countryCode: l[1],
-      regionCode: l[2].split("-")[1],
-      cityName: l[3],
-    };
-  });
+  const iCloudEgressData = lines.map(parseLine);
   return iCloudEgressData;
 }
 
