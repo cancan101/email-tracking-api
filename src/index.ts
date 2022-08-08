@@ -285,6 +285,7 @@ app.get(
   corsMiddleware,
   ...UseJwt,
   query("userId").isString().isUUID(),
+  query("limit").isInt({ gt: 0 }).optional(),
   async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).json({});
@@ -309,6 +310,7 @@ app.get(
       where: { tracker: { userId } },
       orderBy: { createdAt: "desc" },
       include: { tracker: { select: { threadId: true, emailSubject: true } } },
+      take: (data.limit as number | undefined) ?? undefined,
     });
 
     //TODO: filter out self views here
