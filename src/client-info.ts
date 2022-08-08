@@ -22,7 +22,7 @@ const EMAIL_PROVIDER_SUPERHUMAN = "Superhuman";
 type ICloudEgressDatum = {
   cidr: IPCIDR.Address;
   countryCode: string;
-  regionCodeWithCountry: string;
+  regionCode: string;
   cityName: string;
 };
 
@@ -47,7 +47,7 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
     return {
       cidr: new IPCIDR(l[0]).address,
       countryCode: l[1],
-      regionCodeWithCountry: l[2].split("-")[1],
+      regionCode: l[2].split("-")[1],
       cityName: l[3],
     };
   });
@@ -165,7 +165,7 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
       //     clientIpGeo.data = {
       //       city: iCloudEgressEntry.cityName,
       //       countryCode: iCloudEgressEntry.countryCode,
-      //       regionCode: iCloudEgressEntry.regionCodeWithCountry.split("-")[1],
+      //       regionCode: iCloudEgressEntry.regionCode,
       //     };
       //   }
     } else {
