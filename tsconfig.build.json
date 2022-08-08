@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "exclude": ["src/singleton.ts", "__tests__/*.ts"]
+}
