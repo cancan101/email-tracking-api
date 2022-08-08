@@ -81,12 +81,11 @@ async function getICloudEgressDataRaw2(): Promise<ICloudEgressDatum[] | null> {
     },
   });
 
-  const decoderInfo = {
-    partialChunk: "",
-    transform(
-      chunk: string,
-      controller: TransformStreamDefaultController<string>
-    ) {
+  const lineDecoder = new TransformStream<string, string>({
+    start(controller) {
+      this.partialChunk = "";
+    },
+    transform(chunk, controller) {
       const normalisedData = this.partialChunk + chunk;
       const chunks = normalisedData.split("\n");
       this.partialChunk = chunks.pop()!;
@@ -94,12 +93,11 @@ async function getICloudEgressDataRaw2(): Promise<ICloudEgressDatum[] | null> {
         controller.enqueue(chunk);
       }
     },
-    flush(controller: TransformStreamDefaultController<string>) {
+    flush(controller) {
       controller.enqueue(this.partialChunk);
       this.partialChunk = "";
     },
-  };
-  const lineDecoder = new TransformStream<string, string>(decoderInfo);
+  } as Transformer<string, string> & { partialChunk: string });
 
   await response.body
     .pipeThrough(new TextDecoderStream())
