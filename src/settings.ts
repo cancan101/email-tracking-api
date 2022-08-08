@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { cleanEnv, str, email, port, num, url, host } from "envalid";
+import { cleanEnv, str, email, port, num, url, host, bool } from "envalid";
 
 // -------------------------------------------------
 
@@ -8,6 +8,7 @@ dotenv.config();
 const env = cleanEnv(process.env, {
   JWT_ACCESS_TOKEN_SECRET: str(),
   COOKIE_SESSION_SECRET: str(),
+  COOKIE_SESSION_SECURE: bool({ default: true, devDefault: false }),
   SENDGRID_API_KEY: str(),
   PORT: port(),
   // Use the email address or domain you verified

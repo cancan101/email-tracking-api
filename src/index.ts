@@ -66,7 +66,7 @@ app.use(
 
     // Cookie Options
     sameSite: "strict",
-    secure: true,
+    secure: env.COOKIE_SESSION_SECURE,
     // We use the same expiration here so that the we don't get stale access token
     // See comments about hacks below with how / when we generate the access token
     maxAge: env.ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60 * 1000,
