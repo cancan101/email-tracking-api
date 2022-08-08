@@ -4,7 +4,7 @@
   "description": "The API backend for the email tracking",
   "main": "src/index.ts",
   "scripts": {
-    "build": "npx tsc --noEmit",
+    "build": "npx tsc --noEmit -p tsconfig.build.json",
     "start": "ts-node --files --transpile-only src/index.ts",
     "dev": "NODE_ENV=development nodemon --files src/index.ts",
     "test": "npm run lint && npm run test:unit",
