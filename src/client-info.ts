@@ -32,7 +32,15 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
   if (iCloudEgressDataCache !== undefined) {
     return iCloudEgressDataCache;
   }
+  const iCloudEgressData = await getICloudEgressDataRaw();
+  if (iCloudEgressData === null) {
+    return null;
+  }
+  iCloudEgressDataCache = iCloudEgressData;
+  return iCloudEgressData;
+}
 
+async function getICloudEgressDataRaw(): Promise<ICloudEgressDatum[] | null> {
   const response = await fetchWithTimeout(ICLOUD_EGRESS_IP_RANGES);
   if (!response.ok) {
     return null;
@@ -51,7 +59,6 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
       cityName: l[3],
     };
   });
-  iCloudEgressDataCache = iCloudEgressData;
   return iCloudEgressData;
 }
 
