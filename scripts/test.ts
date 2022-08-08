@@ -32,7 +32,7 @@ async function run() {
     write(data, controller) {
       const l = data.split(",");
       records.push({
-        cidr: new IPCIDR(l[0]),
+        cidr: new IPCIDR(l[0]).address,
         countryCode: l[1],
         regionCodeWithCountry: l[2],
         cityName: l[3],
