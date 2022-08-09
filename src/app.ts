@@ -210,18 +210,25 @@ const getViewsForTracker = async (
     return null;
   }
 
-  const cleanViews = (tracker: Tracker & { views: View[] }): View[] => {
+  const cleanViews = (
+    tracker: Tracker & { views: View[] }
+  ): (View & { tracker: Tracker })[] => {
+    const { views: viewsRaw, ...trackerNoViews } = tracker;
+    const views = viewsRaw.map((view) => ({
+      ...view,
+      tracker: trackerNoViews,
+    }));
     if (
       // we only clean when selfLoadMitigation===false (ie not null)
       tracker.selfLoadMitigation !== false ||
       // and there is at least one view
-      tracker.views.length === 0
+      views.length === 0
     ) {
-      return tracker.views;
+      return views;
     }
 
     // sorted desc so last should be first to happen
-    const firstView = tracker.views[tracker.views.length - 1];
+    const firstView = views[views.length - 1];
     const timeFromTrackToViewSec = dayjs(firstView.createdAt).diff(
       dayjs(tracker.createdAt),
       "second",
@@ -229,9 +236,9 @@ const getViewsForTracker = async (
     );
 
     if (timeFromTrackToViewSec < env.SELF_VIEW_THRESHOLD_SEC) {
-      return tracker.views.slice(0, -1);
+      return views.slice(0, -1);
     }
-    return tracker.views;
+    return views;
   };
 
   const views = trackers
