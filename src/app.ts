@@ -20,6 +20,7 @@ import OAuthServer from "express-oauth-server";
 import { AuthorizationCodeModel, AuthorizationCode, User } from "oauth2-server";
 import cookieSession from "cookie-session";
 import crypto from "crypto";
+import nocache from "nocache";
 
 import sentryTunnelHandler from "./sentry-tunnel";
 import env from "./settings";
@@ -177,6 +178,7 @@ async function imageRoute(req: Request, res: Response): Promise<void> {
 // Deprecated
 app.get(
   "/image.gif",
+  nocache(),
   query("trackId").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
     await imageRoute(req, res);
@@ -185,6 +187,7 @@ app.get(
 
 app.get(
   "/t/:trackingSlug/:trackId/image.gif",
+  nocache(),
   param("trackingSlug").isString().isUUID(),
   param("trackId").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
