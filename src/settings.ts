@@ -23,6 +23,7 @@ const env = cleanEnv(process.env, {
   GMAIL_ADDON_CLIENT_SECRET: str({ devDefault: "CLIENT_SECRET" }),
   SENTRY_PROJECT_ID_EXTENSION: str(),
   SENTRY_HOST_EXTENSION: host(),
+  SELF_VIEW_THRESHOLD_SEC: num({ default: 10 }),
 });
 
 export default env;

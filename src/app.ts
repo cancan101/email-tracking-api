@@ -228,8 +228,7 @@ const getViewsForTracker = async (
       true
     );
 
-    // TODO: const this
-    if (timeFromTrackToViewSec < 10) {
+    if (timeFromTrackToViewSec < env.SELF_VIEW_THRESHOLD_SEC) {
       return tracker.views.slice(0, -1);
     }
     return tracker.views;
@@ -303,14 +302,32 @@ app.get(
       return;
     }
 
-    const views = await prisma.view.findMany({
+    const viewsRaw = await prisma.view.findMany({
       where: { tracker: { userId } },
       orderBy: { createdAt: "desc" },
-      include: { tracker: { select: { threadId: true, emailSubject: true } } },
+      include: {
+        tracker: {
+          select: {
+            threadId: true,
+            emailSubject: true,
+            selfLoadMitigation: true,
+            createdAt: true,
+          },
+        },
+      },
       take: data.limit == null ? undefined : parseInt(data.limit, 10),
     });
 
-    //TODO: filter out self views here
+    // TODO: push this into SQL so that the limit clause is correct
+    const views = viewsRaw.filter(
+      (view) =>
+        view.tracker.selfLoadMitigation !== false ||
+        dayjs(view.createdAt).diff(
+          dayjs(view.tracker.createdAt),
+          "second",
+          true
+        ) >= env.SELF_VIEW_THRESHOLD_SEC
+    );
 
     res.json({ data: views });
     return;
