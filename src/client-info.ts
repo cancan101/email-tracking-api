@@ -32,11 +32,14 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
   if (iCloudEgressDataCache !== undefined) {
     return iCloudEgressDataCache;
   }
+
+  console.log("Loading iCloud records from Apple");
   const iCloudEgressData = await getICloudEgressDataRaw2();
   if (iCloudEgressData === null) {
+    console.error("Failed to load iCloud records from Apple");
     return null;
   }
-  console.log(iCloudEgressData.length, "Records loaded from Apple");
+  console.log(`${iCloudEgressData.length} records loaded from Apple`);
   iCloudEgressDataCache = iCloudEgressData;
   return iCloudEgressData;
 }
