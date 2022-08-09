@@ -160,22 +160,26 @@ async function processImage(
   return;
 }
 
+async function imageRoute(req: Request, res: Response): Promise<void> {
+  res.sendFile(transparentGifPath, { lastModified: false });
+
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    // Just send the image in this case
+    return;
+  }
+  const data = matchedData(req);
+  const trackId = data.trackId as string;
+
+  await processImage(trackId, req, res);
+}
+
 // Deprecated
 app.get(
   "/image.gif",
   query("trackId").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
-    res.sendFile(transparentGifPath);
-
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      // Just send the image in this case
-      return;
-    }
-    const data = matchedData(req);
-    const trackId = data.trackId as string;
-
-    await processImage(trackId, req, res);
+    await imageRoute(req, res);
   }
 );
 
@@ -184,17 +188,7 @@ app.get(
   param("trackingSlug").isString().isUUID(),
   param("trackId").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
-    res.sendFile(transparentGifPath);
-
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      // Just send the image in this case
-      return;
-    }
-    const data = matchedData(req);
-    const trackId = data.trackId as string;
-
-    await processImage(trackId, req, res);
+    await imageRoute(req, res);
   }
 );
 
