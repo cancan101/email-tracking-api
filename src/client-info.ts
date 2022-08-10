@@ -69,7 +69,9 @@ async function getICloudEgressDataRaw(): Promise<ICloudEgressDatum[] | null> {
 }
 
 async function getICloudEgressDataRaw2(): Promise<ICloudEgressDatum[] | null> {
-  const response = await fetchWithTimeout(ICLOUD_EGRESS_IP_RANGES);
+  const response = await fetchWithTimeout(ICLOUD_EGRESS_IP_RANGES, {
+    timeout: 25000,
+  });
   if (!response.ok) {
     return null;
   }
