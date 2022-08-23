@@ -9,6 +9,7 @@ function start() {
   });
 }
 
+console.log(`WEB_CONCURRENCY = ${env.WEB_CONCURRENCY}`);
 if (env.WEB_CONCURRENCY === 0) {
   start();
 } else {
