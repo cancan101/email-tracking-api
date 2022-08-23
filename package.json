@@ -29,7 +29,7 @@
     "@node-oauth/oauth2-server": "^4.2.0",
     "@prisma/client": "^4.2.1",
     "@sendgrid/mail": "^7.7.0",
-    "@sentry/node": "^7.10.0",
+    "@sentry/node": "^7.11.1",
     "@sentry/tracing": "^7.11.1",
     "commander": "^9.4.0",
     "cookie-session": "^2.0.0",
