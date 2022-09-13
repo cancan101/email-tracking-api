@@ -16,6 +16,7 @@ const EMAIL_PROVIDER_YAHOO = "Yahoo";
 const EMAIL_PROVIDER_FRONT_APP = "FrontApp";
 const EMAIL_PROVIDER_APPLE_MAIL = "Apple Mail";
 const EMAIL_PROVIDER_SUPERHUMAN = "Superhuman";
+const EMAIL_PROVIDER_OUTLOOK365 = "Outlook365";
 
 // -------------------------------------------------
 
@@ -197,9 +198,16 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
     const org = clientIpGeoData?.org;
     const isICloudPrivateRelay = org === "iCloud Private Relay";
 
+    // asname: MICROSOFT-CORP-MSN-AS-BLOCK
+    const isMicrosoftCorpMsn =
+      clientIpGeoData?.as === "AS8075 Microsoft Corporation";
+
     if (isGoogleLlc) {
       clientIpGeo.rule = "connectionIspGoogleLlc";
       clientIpGeo.emailProvider = EMAIL_PROVIDER_GMAIL;
+    } else if (isMicrosoftCorpMsn) {
+      clientIpGeo.rule = "asMicrosoftMsn";
+      clientIpGeo.emailProvider = EMAIL_PROVIDER_OUTLOOK365;
     } else if (isICloudPrivateRelay) {
       clientIpGeo.rule = "orgICloudPrivateRelay";
       clientIpGeo.emailProvider = EMAIL_PROVIDER_APPLE_MAIL;
@@ -265,8 +273,17 @@ export async function getClientIpGeo(
   const isProxiedSuperhuman =
     userAgent !== undefined && userAgent === "Superhuman";
 
+  const isProxiedOutlook365 =
+    userAgent !== undefined &&
+    userAgent ===
+      "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35 Safari/537.36";
+
   const isProxied =
-    isProxiedGoogle || isProxiedYahoo || isProxiedFront || isProxiedSuperhuman;
+    isProxiedGoogle ||
+    isProxiedYahoo ||
+    isProxiedFront ||
+    isProxiedSuperhuman ||
+    isProxiedOutlook365;
 
   if (isProxied) {
     let emailProvider = undefined;
@@ -278,6 +295,8 @@ export async function getClientIpGeo(
       emailProvider = EMAIL_PROVIDER_FRONT_APP;
     } else if (isProxiedSuperhuman) {
       emailProvider = EMAIL_PROVIDER_SUPERHUMAN;
+    } else if (isProxiedOutlook365) {
+      emailProvider = EMAIL_PROVIDER_OUTLOOK365;
     }
 
     clientIpGeo = { source: "userAgent", emailProvider };
