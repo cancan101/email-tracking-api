@@ -147,14 +147,18 @@ async function processImage(
     });
   } catch (error) {
     // ask forgiveness
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2003") {
-        console.log("Unknown tracker requested", trackId);
-      } else {
-        Sentry.captureException(error);
-        console.error(error);
-      }
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2003"
+      // TODO: also check meta
+    ) {
+      console.log(
+        "Unknown tracker requested",
+        trackId,
+        JSON.stringify(error.meta)
+      );
     } else {
+      Sentry.captureException(error);
       console.error(error);
     }
   }
@@ -381,18 +385,40 @@ app.post(
       const scheduledSendAt =
         scheduledTimestamp == null ? null : new Date(scheduledTimestamp);
 
-      await prisma.tracker.create({
-        data: {
-          userId,
-          trackId,
-          threadId,
-          emailId,
-          emailSubject,
-          scheduledSendAt,
-          clientIp,
-          selfLoadMitigation,
-        },
-      });
+      try {
+        await prisma.tracker.create({
+          data: {
+            userId,
+            trackId,
+            threadId,
+            emailId,
+            emailSubject,
+            scheduledSendAt,
+            clientIp,
+            selfLoadMitigation,
+          },
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+          // TODO: also check meta
+        ) {
+          console.log(
+            "emailId already tracked",
+            trackId,
+            JSON.stringify(error.meta)
+          );
+          res.status(409).json({});
+          return;
+        } else {
+          Sentry.captureException(error);
+          console.error(error);
+
+          res.status(500).json({});
+          return;
+        }
+      }
       res.status(201).json({});
       return;
     } else {
