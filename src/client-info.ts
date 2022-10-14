@@ -35,7 +35,15 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
   }
 
   console.log("Loading iCloud records from Apple");
-  const iCloudEgressData = await getICloudEgressDataRaw2();
+
+  let iCloudEgressData: ICloudEgressDatum[] | null = null;
+  try {
+    iCloudEgressData = await getICloudEgressDataRaw2();
+  } catch (error) {
+    console.error("getICloudEgressDataRaw2 call failed");
+    Sentry.captureException(error);
+  }
+
   if (iCloudEgressData === null) {
     console.error("Failed to load iCloud records from Apple");
     return null;
