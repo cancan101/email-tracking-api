@@ -149,14 +149,10 @@ async function processImage(
     // ask forgiveness
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2003"
-      // TODO: also check meta
+      error.code === "P2003" &&
+      error.meta?.field_name === "View_trackId_fkey (index)"
     ) {
-      console.log(
-        "Unknown tracker requested",
-        trackId,
-        JSON.stringify(error.meta)
-      );
+      console.log("Unknown tracker requested", trackId);
     } else {
       Sentry.captureException(error);
       console.error(error);
@@ -401,14 +397,12 @@ app.post(
       } catch (error) {
         if (
           error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2002"
-          // TODO: also check meta
+          error.code === "P2002" &&
+          // not sure if this needs a contains,
+          // rather than assuming it is at index 0
+          (error.meta?.target as string[] | undefined)?.[0] === "emailId"
         ) {
-          console.log(
-            "emailId already tracked",
-            trackId,
-            JSON.stringify(error.meta)
-          );
+          console.log("emailId already tracked", trackId);
           res.status(409).json({});
           return;
         } else {
