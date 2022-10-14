@@ -303,14 +303,25 @@ export async function getClientIpGeo(
   } else {
     try {
       clientIpGeo = await lookupIpApi(clientIp);
-      const clientIpGeoSecondary = await lookupIpwhois(clientIp);
-      if (clientIpGeo === null) {
-        clientIpGeo = clientIpGeoSecondary;
-      } else {
-        clientIpGeo.secondary = clientIpGeoSecondary ?? undefined;
-      }
     } catch (error) {
+      console.error("lookupIpApi call failed");
       Sentry.captureException(error);
+    }
+
+    let clientIpGeoSecondary: ClientIpGeo | null = null;
+    try {
+      // TODO(cancan101): run these lookups in parallel
+      // such that the combined promise does not reject unless both of them reject
+      clientIpGeoSecondary = await lookupIpwhois(clientIp);
+    } catch (error) {
+      console.error("lookupIpwhois call failed");
+      Sentry.captureException(error);
+    }
+
+    if (clientIpGeo === null) {
+      clientIpGeo = clientIpGeoSecondary;
+    } else {
+      clientIpGeo.secondary = clientIpGeoSecondary ?? undefined;
     }
   }
   return clientIpGeo;
