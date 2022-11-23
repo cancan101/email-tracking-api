@@ -676,7 +676,7 @@ app.options("/api/v1/stunnel", corsMiddleware);
 app.post(
   "/api/v1/stunnel",
   corsMiddleware,
-  express.text(),
+  express.text({ limit: env.SENTRY_TUNNEL_SIZE_LIMIT }),
   sentryTunnelHandler
 );
 
