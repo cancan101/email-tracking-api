@@ -25,6 +25,7 @@ const env = cleanEnv(process.env, {
   SENTRY_HOST_EXTENSION: host(),
   SELF_VIEW_THRESHOLD_SEC: num({ default: 10 }),
   WEB_CONCURRENCY: num({ default: 1, devDefault: 0 }),
+  SENTRY_TUNNEL_SIZE_LIMIT: str({ default: "100kb" }),
 });
 
 export default env;
