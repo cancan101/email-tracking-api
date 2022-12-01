@@ -61,6 +61,7 @@ sgMail.setApiKey(env.SENDGRID_API_KEY);
 
 // -------------------------------------------------
 
+// TODO(cancan101): This should be on just the routes that need it
 app.use(
   cookieSession({
     secret: env.COOKIE_SESSION_SECRET,
@@ -341,6 +342,12 @@ app.get(
   }
 );
 
+const getSessionUsers = (
+  session: CookieSessionInterfaces.CookieSessionObject
+): UserData[] => {
+  return (session.users as UserData[] | undefined) ?? [];
+};
+
 app.options("/api/v1/trackers/", corsMiddleware);
 app.post(
   "/api/v1/trackers/",
@@ -445,6 +452,7 @@ async function getAccessToken(
   return { accessToken, expiresIn };
 }
 
+// TODO(cancan101): POST + csrf token (?)
 app.get(
   "/magic-login",
   query("token").isString().isUUID(),
@@ -455,7 +463,8 @@ app.get(
       return;
     }
 
-    if (req.session == null) {
+    const session = req.session;
+    if (session == null) {
       res.status(500).json({});
       return;
     }
@@ -501,12 +510,12 @@ app.get(
       emailToken: token,
     };
 
-    const currentUsers = (req.session.users as UserData[] | undefined) ?? [];
-
+    const currentUsers = getSessionUsers(session);
+    // splice out this email if we already track it
     const otherUsers = currentUsers.filter(
       (currentUser) => currentUser.emailAccount !== userData.emailAccount
     );
-    req.session.users = [userData, ...otherUsers];
+    session.users = [userData, ...otherUsers] as UserData[];
 
     res.status(200).send("Logging in...");
 
@@ -518,6 +527,7 @@ app.get(
 );
 
 // this logouts from everything
+// TODO(cancan101): POST + csrf token (?)
 app.get("/logout", (req: Request, res: Response): void => {
   req.session = null;
   // <script>setTimeout(function() { top.window.close() }, 1);</script>
@@ -605,6 +615,7 @@ app.post(
 // Also it might not need to be a POST
 // Do we care about allowing this to only be run once?
 // Also a bit weird that we key this off the original email token.
+// TODO(cancan101): csrf token (?)
 app.options("/api/v1/login/use-magic", corsMiddleware);
 app.post(
   "/api/v1/login/use-magic",
@@ -619,13 +630,14 @@ app.post(
 
     const token = req.body.token as string;
 
-    if (req.session == null) {
+    const session = req.session;
+    if (session == null) {
       res.status(500).json({});
       return;
     }
     // This can be called more than once and just reads off the session
     // A little hacky
-    const userData = ((req.session.users ?? []) as UserData[]).find(
+    const userData = getSessionUsers(session).find(
       (user) => user.emailToken == token
     );
 
@@ -798,14 +810,15 @@ app.get(
     const data = matchedData(request);
     const login_hint = data.login_hint as string;
 
-    if (request.session == null) {
+    const session = request.session;
+    if (session == null) {
       response.status(500).json({});
       return;
     }
 
     // use the query param `login_hint` to to identify the user
     // this is a "silent" auth in that we don't prompt the user for anything
-    const login_hint_user = ((request.session.users ?? []) as UserData[]).find(
+    const login_hint_user = getSessionUsers(session).find(
       (user) => user.emailAccount == login_hint
     );
 
