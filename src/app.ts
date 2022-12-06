@@ -452,7 +452,6 @@ async function getAccessToken(
   return { accessToken, expiresIn };
 }
 
-// TODO(cancan101): POST + csrf token (?)
 app.get(
   "/magic-login",
   query("token").isString().isUUID(),
@@ -615,7 +614,6 @@ app.post(
 // Also it might not need to be a POST
 // Do we care about allowing this to only be run once?
 // Also a bit weird that we key this off the original email token.
-// TODO(cancan101): csrf token (?)
 app.options("/api/v1/login/use-magic", corsMiddleware);
 app.post(
   "/api/v1/login/use-magic",
