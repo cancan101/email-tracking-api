@@ -67,7 +67,7 @@ app.use(
     secret: env.COOKIE_SESSION_SECRET,
 
     // Cookie Options
-    sameSite: "strict",
+    sameSite: false,
     secure: env.COOKIE_SESSION_SECURE,
     // We use the same expiration here so that the we don't get stale access token
     // See comments about hacks below with how / when we generate the access token
