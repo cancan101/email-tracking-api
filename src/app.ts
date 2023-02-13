@@ -516,6 +516,8 @@ app.get(
     );
     session.users = [userData, ...otherUsers] as UserData[];
 
+    console.log("session.users", session.users);
+
     res.status(200).send("Logging in...");
 
     // We could do a redirect here to a page that the Chrome extension would use
@@ -814,9 +816,12 @@ app.get(
       return;
     }
 
+    const currentUsers = getSessionUsers(session);
+    console.log("currentUsers", currentUsers);
+
     // use the query param `login_hint` to to identify the user
     // this is a "silent" auth in that we don't prompt the user for anything
-    const login_hint_user = getSessionUsers(session).find(
+    const login_hint_user = currentUsers.find(
       (user) => user.emailAccount == login_hint
     );
 
