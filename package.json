@@ -40,7 +40,7 @@
     "express": "^4.18.2",
     "express-jwt": "^8.3.0",
     "express-oauth-server": "node-oauth/express-oauth-server",
-    "express-validator": "^6.14.2",
+    "express-validator": "^6.14.3",
     "ip-cidr": "^3.0.11",
     "jsonwebtoken": "^9.0.0",
     "nocache": "^3.0.4",
