@@ -312,8 +312,13 @@ export async function getClientIpGeo(
     try {
       clientIpGeo = await lookupIpApi(clientIp);
     } catch (error) {
-      console.error("lookupIpApi call failed");
-      Sentry.captureException(error);
+      // Prior to Node 19, the name is AbortError
+      if (error instanceof DOMException && error.name === "TimeoutError") {
+        console.error("lookupIpApi call timed-out");
+      } else {
+        console.error("lookupIpApi call failed");
+        Sentry.captureException(error);
+      }
     }
 
     let clientIpGeoSecondary: ClientIpGeo | null = null;
@@ -322,8 +327,13 @@ export async function getClientIpGeo(
       // such that the combined promise does not reject unless both of them reject
       clientIpGeoSecondary = await lookupIpwhois(clientIp);
     } catch (error) {
-      console.error("lookupIpwhois call failed");
-      Sentry.captureException(error);
+      // Prior to Node 19, the name is AbortError
+      if (error instanceof DOMException && error.name === "TimeoutError") {
+        console.error("lookupIpwhois call timed-out");
+      } else {
+        console.error("lookupIpwhois call failed");
+        Sentry.captureException(error);
+      }
     }
 
     if (clientIpGeo === null) {
