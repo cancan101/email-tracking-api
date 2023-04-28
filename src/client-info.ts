@@ -315,6 +315,12 @@ export async function getClientIpGeo(
       // Prior to Node 19, the name is AbortError
       if (error instanceof DOMException && error.name === "TimeoutError") {
         console.error("lookupIpApi call timed-out");
+      } else if (
+        error instanceof TypeError &&
+        error.cause &&
+        (error.cause as any).code === "ECONNRESET"
+      ) {
+        console.error("lookupIpApi call connection failed");
       } else {
         console.error("lookupIpApi call failed");
         Sentry.captureException(error);
