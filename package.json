@@ -26,6 +26,7 @@
   },
   "homepage": "https://github.com/cancan101/email-tracking-api#readme",
   "dependencies": {
+    "@node-oauth/express-oauth-server": "^3.0.0",
     "@node-oauth/oauth2-server": "^4.3.0",
     "@prisma/client": "^4.14.1",
     "@sendgrid/mail": "^7.7.0",
@@ -39,7 +40,6 @@
     "envalid": "^7.3.1",
     "express": "^4.18.2",
     "express-jwt": "^8.4.1",
-    "express-oauth-server": "node-oauth/express-oauth-server",
     "express-validator": "^7.0.1",
     "ip-cidr": "^3.1.0",
     "jsonwebtoken": "^9.0.0",
