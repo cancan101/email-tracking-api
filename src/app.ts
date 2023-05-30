@@ -17,7 +17,11 @@ import fs from "fs";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
 import OAuthServer from "@node-oauth/express-oauth-server";
-import { AuthorizationCodeModel, AuthorizationCode, User } from "oauth2-server";
+import {
+  AuthorizationCodeModel,
+  AuthorizationCode,
+  User,
+} from "@node-oauth/oauth2-server";
 import cookieSession from "cookie-session";
 import crypto from "crypto";
 import nocache from "nocache";
