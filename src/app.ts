@@ -16,7 +16,7 @@ import sgMail from "@sendgrid/mail";
 import fs from "fs";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
-import OAuthServer from "express-oauth-server";
+import OAuthServer from "@node-oauth/express-oauth-server";
 import { AuthorizationCodeModel, AuthorizationCode, User } from "oauth2-server";
 import cookieSession from "cookie-session";
 import crypto from "crypto";
