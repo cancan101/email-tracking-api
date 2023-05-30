@@ -31,7 +31,7 @@
     "@prisma/client": "^4.14.1",
     "@sendgrid/mail": "^7.7.0",
     "@sentry/node": "^7.53.0",
-    "@sentry/tracing": "^7.53.0",
+    "@sentry/tracing": "^7.53.1",
     "commander": "^10.0.1",
     "cookie-session": "^2.0.0",
     "cors": "^2.8.5",
