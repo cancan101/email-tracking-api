@@ -40,8 +40,13 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
   try {
     iCloudEgressData = await getICloudEgressDataRaw2();
   } catch (error) {
-    console.error("getICloudEgressDataRaw2 call failed");
-    Sentry.captureException(error);
+    // Prior to Node 19, the name is AbortError
+    if (error instanceof DOMException && error.name === "TimeoutError") {
+      console.error("getICloudEgressDataRaw2 call timed-out");
+    } else {
+      console.error("getICloudEgressDataRaw2 call failed");
+      Sentry.captureException(error);
+    }
   }
 
   if (iCloudEgressData === null) {
