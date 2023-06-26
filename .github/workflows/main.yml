@@ -12,9 +12,12 @@ jobs:
         with:
           node-version-file: "package.json"
           cache: "npm"
-      - run: npm ci
-      - run: |
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: |
           set -a
           source __tests__/testing.env
           npm test
-      - run: npm run build
+      - name: Build
+        run: npm run build
