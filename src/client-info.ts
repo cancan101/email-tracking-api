@@ -40,8 +40,9 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
   try {
     iCloudEgressData = await getICloudEgressDataRaw2();
   } catch (error) {
-    // Prior to Node 19, the name is AbortError
-    if (error instanceof DOMException && error.name === "TimeoutError") {
+    // getICloudEgressDataRaw2 raises AbortError rather than TimeoutError,
+    // perhaps due to the streaming.
+    if (error instanceof DOMException && error.name === "AbortError") {
       console.error("getICloudEgressDataRaw2 call timed-out");
     } else {
       console.error("getICloudEgressDataRaw2 call failed");
