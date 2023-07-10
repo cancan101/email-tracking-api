@@ -12,7 +12,7 @@ updates:
     groups:
       sentry:
         patterns:
-          - "@sentry/*"      
+          - "@sentry/*"
   - package-ecosystem: "github-actions"
     directory: /
     schedule:
