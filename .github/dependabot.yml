@@ -13,6 +13,10 @@ updates:
       sentry:
         patterns:
           - "@sentry/*"
+      prisma:
+        patterns:
+          - "@prisma/client"
+          - "prisma"
   - package-ecosystem: "github-actions"
     directory: /
     schedule:
