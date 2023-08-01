@@ -28,7 +28,7 @@
   "dependencies": {
     "@node-oauth/express-oauth-server": "^3.0.1",
     "@node-oauth/oauth2-server": "^4.3.0",
-    "@prisma/client": "^4.16.1",
+    "@prisma/client": "^5.1.0",
     "@sendgrid/mail": "^7.7.0",
     "@sentry/node": "^7.57.0",
     "@sentry/tracing": "^7.57.0",
@@ -63,7 +63,7 @@
     "lint-staged": "^13.2.3",
     "nodemon": "^2.0.22",
     "prettier": "^2.8.8",
-    "prisma": "^4.16.1",
+    "prisma": "^5.1.0",
     "supertest": "^6.3.3",
     "ts-jest": "^28.0.8",
     "typescript": "^5.1.6"
