@@ -54,7 +54,7 @@
     "@types/jest": "^28.1.8",
     "@types/jsbn": "^1.2.30",
     "@types/jsonwebtoken": "^9.0.2",
-    "@types/node": "^20.4.1",
+    "@types/node": "^20.5.4",
     "@types/supertest": "^2.0.12",
     "@types/throng": "^5.0.4",
     "husky": "^8.0.3",
