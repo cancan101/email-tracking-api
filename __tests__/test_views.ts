@@ -104,3 +104,22 @@ test("test views selfMitigation filtering", async () => {
     expect.objectContaining({ take: 1 })
   );
 });
+
+test("test creating tracker with scheduledTimestamp", async () => {
+  const userId = "71cf7000-cf96-47b4-bc9f-bf36f486a088";
+  const { accessToken } = await getAccessToken(userId);
+
+  const response = await request(app)
+    .post(`/api/v1/trackers/`)
+    .send({
+      emailId: "msg-a:r-9999999999999999999",
+      emailSubject: "My Subject Line",
+      scheduledTimestamp: "1693310400000",
+      selfLoadMitigation: true,
+      threadId: "thread-f:1111111111111111111",
+      trackId: "4fcb3ce6-bc89-47c8-9ed2-4fbaaab2620e",
+    })
+    .set("Authorization", `Bearer ${accessToken}`);
+
+  expect(response.status).toEqual(201);
+});
