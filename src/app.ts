@@ -346,6 +346,16 @@ app.get(
   }
 );
 
+const parseScheduledSendAt = (scheduledTimestamp: any): Date | null => {
+  if (scheduledTimestamp == null) {
+    return null;
+  } else if (typeof scheduledTimestamp === "number") {
+    return new Date(scheduledTimestamp);
+  } else {
+    return new Date(parseInt(scheduledTimestamp, 10));
+  }
+};
+
 const getSessionUsers = (
   session: CookieSessionInterfaces.CookieSessionObject
 ): UserData[] => {
@@ -389,8 +399,12 @@ app.post(
       const userId = req.auth.sub;
       const clientIp = req.ip;
 
-      const scheduledSendAt =
-        scheduledTimestamp == null ? null : new Date(scheduledTimestamp);
+      const scheduledSendAt = parseScheduledSendAt(scheduledTimestamp);
+
+      if (scheduledSendAt !== null && isNaN(+scheduledSendAt)) {
+        res.status(400).json({ error_code: "invalid_scheduledTimestamp" });
+        return;
+      }
 
       try {
         await prisma.tracker.create({
