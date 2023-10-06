@@ -314,21 +314,40 @@ app.get(
       return;
     }
 
-    const viewsRaw = await prisma.view.findMany({
-      where: { tracker: { userId } },
-      orderBy: { createdAt: "desc" },
-      include: {
-        tracker: {
-          select: {
-            threadId: true,
-            emailSubject: true,
-            selfLoadMitigation: true,
-            createdAt: true,
+    let viewsRaw;
+    try {
+      viewsRaw = await prisma.view.findMany({
+        where: { tracker: { userId } },
+        orderBy: { createdAt: "desc" },
+        include: {
+          tracker: {
+            select: {
+              threadId: true,
+              emailSubject: true,
+              selfLoadMitigation: true,
+              createdAt: true,
+            },
           },
         },
-      },
-      take: data.limit == null ? undefined : parseInt(data.limit, 10),
-    });
+        take: data.limit == null ? undefined : parseInt(data.limit, 10),
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        // https://www.prisma.io/docs/reference/api-reference/error-reference#error-codes
+        error.code === "P1001"
+      ) {
+        console.log("Can't reach database server");
+        res.status(503).json({});
+        return;
+      } else {
+        Sentry.captureException(error);
+        console.error(error);
+
+        res.status(500).json({});
+        return;
+      }
+    }
 
     // TODO: push this into SQL so that the limit clause is correct
     const views = viewsRaw.filter(
