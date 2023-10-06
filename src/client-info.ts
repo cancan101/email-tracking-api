@@ -128,7 +128,7 @@ async function getICloudEgressDataRaw2(): Promise<ICloudEgressDatum[] | null> {
 }
 
 export async function getICloudEgressEntry(
-  clientIp: string
+  clientIp: string,
 ): Promise<ICloudEgressDatum | null> {
   const iCloudEgressData = await getICloudEgressData();
   if (iCloudEgressData === null) {
@@ -136,7 +136,7 @@ export async function getICloudEgressEntry(
   }
   const clientIpAddress = IPCIDR.createAddress(clientIp);
   const iCloudEgressEntry = iCloudEgressData.find((entry) =>
-    clientIpAddress.isInSubnet(entry.cidr)
+    clientIpAddress.isInSubnet(entry.cidr),
   );
   return iCloudEgressEntry ?? null;
 }
@@ -180,9 +180,9 @@ async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
     Sentry.captureException(
       new Error(
         `Unable to fetch IP geo data ${resp.status}: ${JSON.stringify(
-          respJson
-        )}`
-      )
+          respJson,
+        )}`,
+      ),
     );
   }
   return clientIpGeo;
@@ -191,7 +191,7 @@ async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
 async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
   let clientIpGeo: ClientIpGeo | null = null;
   const resp = await fetchWithTimeout(
-    `http://ip-api.com/json/${clientIp}?fields=status,message,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,isp,org,as,asname,mobile,proxy,hosting`
+    `http://ip-api.com/json/${clientIp}?fields=status,message,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,isp,org,as,asname,mobile,proxy,hosting`,
   );
   clientIpGeo = { source: "ip-api" };
   if (resp.ok) {
@@ -261,9 +261,9 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
     Sentry.captureException(
       new Error(
         `Unable to fetch IP geo data ${resp.status}: ${JSON.stringify(
-          respJson
-        )}`
-      )
+          respJson,
+        )}`,
+      ),
     );
   }
   return clientIpGeo;
@@ -271,7 +271,7 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
 
 export async function getClientIpGeo(
   clientIp: string,
-  userAgent: string | undefined
+  userAgent: string | undefined,
 ): Promise<ClientIpGeo | null> {
   let clientIpGeo: ClientIpGeo | null = null;
 

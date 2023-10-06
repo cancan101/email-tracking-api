@@ -56,7 +56,7 @@ test("test views filtered by user", async () => {
   expect(responseJson.data.length).toEqual(1);
 
   expect(prismaMock.view.findMany).toBeCalledWith(
-    expect.not.objectContaining({ take: expect.anything() })
+    expect.not.objectContaining({ take: expect.anything() }),
   );
 });
 
@@ -77,7 +77,7 @@ test("test views filtered by user and with limit", async () => {
   expect(responseJson.data.length).toEqual(1);
 
   expect(prismaMock.view.findMany).toBeCalledWith(
-    expect.objectContaining({ take: 1 })
+    expect.objectContaining({ take: 1 }),
   );
 });
 
@@ -101,7 +101,7 @@ test("test views selfMitigation filtering", async () => {
   expect(responseJson.data.length).toEqual(1);
 
   expect(prismaMock.view.findMany).toBeCalledWith(
-    expect.objectContaining({ take: 1 })
+    expect.objectContaining({ take: 1 }),
   );
 });
 
