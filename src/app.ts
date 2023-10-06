@@ -76,7 +76,7 @@ app.use(
     // We use the same expiration here so that the we don't get stale access token
     // See comments about hacks below with how / when we generate the access token
     maxAge: env.ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60 * 1000,
-  })
+  }),
 );
 
 // -------------------------------------------------
@@ -85,7 +85,7 @@ app.use(
 const transparentGifPath = path.join(
   __dirname,
   "../responses",
-  "transparent.gif"
+  "transparent.gif",
 );
 if (!fs.existsSync(transparentGifPath)) {
   throw Error(`No such file: ${transparentGifPath}`);
@@ -134,7 +134,7 @@ const UseJwt = [
 async function processImage(
   trackId: string,
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> {
   const clientIp = req.ip;
   const userAgent = req.headers["user-agent"];
@@ -187,7 +187,7 @@ app.get(
   query("trackId").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
     await imageRoute(req, res);
-  }
+  },
 );
 
 app.get(
@@ -197,12 +197,12 @@ app.get(
   param("trackId").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
     await imageRoute(req, res);
-  }
+  },
 );
 
 const getViewsForTracker = async (
   threadId: string,
-  userId: string
+  userId: string,
 ): Promise<null | View[]> => {
   const trackers = await prisma.tracker.findMany({
     where: { userId, threadId },
@@ -216,7 +216,7 @@ const getViewsForTracker = async (
   }
 
   const cleanViews = (
-    tracker: Tracker & { views: View[] }
+    tracker: Tracker & { views: View[] },
   ): (View & { tracker: Tracker })[] => {
     const { views: viewsRaw, ...trackerNoViews } = tracker;
     const views = viewsRaw.map((view) => ({
@@ -237,7 +237,7 @@ const getViewsForTracker = async (
     const timeFromTrackToViewSec = dayjs(firstView.createdAt).diff(
       dayjs(tracker.createdAt),
       "second",
-      true
+      true,
     );
 
     if (timeFromTrackToViewSec < env.SELF_VIEW_THRESHOLD_SEC) {
@@ -284,7 +284,7 @@ app.get(
 
     res.json({ data: views });
     return;
-  }
+  },
 );
 
 app.options("/api/v1/views/", corsMiddleware);
@@ -356,13 +356,13 @@ app.get(
         dayjs(view.createdAt).diff(
           dayjs(view.tracker.createdAt),
           "second",
-          true
-        ) >= env.SELF_VIEW_THRESHOLD_SEC
+          true,
+        ) >= env.SELF_VIEW_THRESHOLD_SEC,
     );
 
     res.json({ data: views });
     return;
-  }
+  },
 );
 
 const parseScheduledSendAt = (scheduledTimestamp: any): Date | null => {
@@ -376,7 +376,7 @@ const parseScheduledSendAt = (scheduledTimestamp: any): Date | null => {
 };
 
 const getSessionUsers = (
-  session: CookieSessionInterfaces.CookieSessionObject
+  session: CookieSessionInterfaces.CookieSessionObject,
 ): UserData[] => {
   return (session.users as UserData[] | undefined) ?? [];
 };
@@ -463,7 +463,7 @@ app.post(
       res.status(400).json({});
       return;
     }
-  }
+  },
 );
 
 type UserData = {
@@ -475,7 +475,7 @@ type UserData = {
 };
 
 async function getAccessToken(
-  userId: string
+  userId: string,
 ): Promise<{ accessToken: string; expiresIn: number }> {
   const subject = String(userId);
 
@@ -549,7 +549,7 @@ app.get(
     const currentUsers = getSessionUsers(session);
     // splice out this email if we already track it
     const otherUsers = currentUsers.filter(
-      (currentUser) => currentUser.emailAccount !== userData.emailAccount
+      (currentUser) => currentUser.emailAccount !== userData.emailAccount,
     );
     session.users = [userData, ...otherUsers] as UserData[];
 
@@ -559,7 +559,7 @@ app.get(
     // That way errors are surfaced
 
     return;
-  }
+  },
 );
 
 // this logouts from everything
@@ -644,7 +644,7 @@ app.post(
     }
 
     return;
-  }
+  },
 );
 
 // The name of this can change now that is just returns the token
@@ -673,7 +673,7 @@ app.post(
     // This can be called more than once and just reads off the session
     // A little hacky
     const userData = getSessionUsers(session).find(
-      (user) => user.emailToken == token
+      (user) => user.emailToken == token,
     );
 
     if (userData === undefined) {
@@ -683,7 +683,7 @@ app.post(
 
     res.status(200).json(userData);
     return;
-  }
+  },
 );
 
 app.post(
@@ -709,9 +709,9 @@ app.post(
           emailAccount: user.email,
           trackingSlug: user.slug,
         },
-      })
+      }),
     );
-  }
+  },
 );
 
 // Probably not needed long term
@@ -724,7 +724,7 @@ app.post(
   "/api/v1/stunnel",
   corsMiddleware,
   express.text({ limit: env.SENTRY_TUNNEL_SIZE_LIMIT }),
-  sentryTunnelHandler
+  sentryTunnelHandler,
 );
 
 // See https://github.com/oauthjs/node-oauth2-server for specification
@@ -743,7 +743,7 @@ const OAuthServerModel: AuthorizationCodeModel = {
       clientSecret &&
       !crypto.timingSafeEqual(
         Buffer.from(env.GMAIL_ADDON_CLIENT_SECRET),
-        Buffer.from(clientSecret)
+        Buffer.from(clientSecret),
       )
     )
       return null;
@@ -758,7 +758,7 @@ const OAuthServerModel: AuthorizationCodeModel = {
     return user.accessToken;
   },
   getAuthorizationCode: async (
-    authorizationCode
+    authorizationCode,
   ): Promise<AuthorizationCode> => {
     // here we just parse the jwt that send out
     // we should verify
@@ -788,7 +788,7 @@ const OAuthServerModel: AuthorizationCodeModel = {
   saveAuthorizationCode: async (
     code,
     client,
-    user
+    user,
   ): Promise<AuthorizationCode> => {
     const authorizationCode = await jsonwebtoken.sign(
       {
@@ -803,7 +803,7 @@ const OAuthServerModel: AuthorizationCodeModel = {
         // Should we track any of these?
         // expiresIn,
         // subject,
-      }
+      },
     );
     return {
       ...code,
@@ -856,7 +856,7 @@ app.get(
     // use the query param `login_hint` to to identify the user
     // this is a "silent" auth in that we don't prompt the user for anything
     const login_hint_user = currentUsers.find(
-      (user) => user.emailAccount == login_hint
+      (user) => user.emailAccount == login_hint,
     );
 
     if (login_hint_user === undefined) {
@@ -873,12 +873,12 @@ app.get(
     response.locals.login_hint_user = login_hint_user;
     next();
   },
-  oauth.authorize()
+  oauth.authorize(),
 );
 app.post(
   "/o/oauth2/token",
   express.urlencoded({ extended: false }),
-  oauth.token()
+  oauth.token(),
 );
 
 // The error handler must be before any other error middleware and after all controllers

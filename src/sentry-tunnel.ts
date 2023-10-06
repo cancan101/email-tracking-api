@@ -14,7 +14,7 @@ const knownProjectIds = [env.SENTRY_PROJECT_ID_EXTENSION];
 
 const sentryTunnelHandler = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const envelope = req.body;
