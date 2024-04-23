@@ -45,7 +45,7 @@
     "jsonwebtoken": "^9.0.2",
     "nocache": "^4.0.0",
     "throng": "^5.0.0",
-    "ts-node": "^10.9.1"
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@types/cookie-session": "^2.0.48",
