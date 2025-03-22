@@ -34,8 +34,8 @@ const sentryTunnelHandler = async (
     const projectId = path.endsWith("/")
       ? path.slice(0, -1)
       : path.startsWith("/")
-      ? path.slice(1)
-      : path;
+        ? path.slice(1)
+        : path;
     if (!knownProjectIds.includes(projectId)) {
       throw new Error(`invalid project id: ${projectId}`);
     }
