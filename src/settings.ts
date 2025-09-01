@@ -9,7 +9,7 @@ const env = cleanEnv(process.env, {
   JWT_ACCESS_TOKEN_SECRET: str(),
   COOKIE_SESSION_SECRET: str(),
   COOKIE_SESSION_SECURE: bool({ default: true, devDefault: false }),
-  SENDGRID_API_KEY: str(),
+  SMTP2GO_API_KEY: str(),
   PORT: port(),
   // Use the email address or domain you verified
   MAGIC_LINK_FROM_EMAIL: email(),

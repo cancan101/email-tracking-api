@@ -12,7 +12,7 @@ import {
 } from "express-validator";
 import jsonwebtoken from "jsonwebtoken";
 import { expressjwt, Request as JWTRequest } from "express-jwt";
-import sgMail from "@sendgrid/mail";
+import SMTP2GOApi from "smtp2go-nodejs";
 import fs from "fs";
 import * as Sentry from "@sentry/node";
 import * as Tracing from "@sentry/tracing";
@@ -61,7 +61,7 @@ app.use(Sentry.Handlers.tracingHandler());
 
 // -------------------------------------------------
 
-sgMail.setApiKey(env.SENDGRID_API_KEY);
+const smpt2goApi = SMTP2GOApi(env.SMTP2GO_API_KEY);
 
 // -------------------------------------------------
 
@@ -616,23 +616,21 @@ app.post(
 
     const loginUrl = `${protocol}://${host}/magic-login?token=${magicLinkToken.token}`;
 
-    const msg = {
-      to: user.email,
-      from: {
+    const mailService = smpt2goApi
+      .mail()
+      .to({ email: user.email })
+      .from({
         email: env.MAGIC_LINK_FROM_EMAIL,
         name: env.MAGIC_LINK_FROM_NAME,
-      },
-      subject: "Email Tracker",
-      text: `Login using: ${loginUrl}`,
-      // Don't mangle the URL with tracking:
-      tracking_settings: { click_tracking: { enable: false } },
-    };
+      })
+      .subject("Email Tracker")
+      .text(`Login using: ${loginUrl}`);
 
     console.log("loginUrl:", email, loginUrl);
 
     try {
       // TODO(cancan101): option to mock this (merge with log above)
-      await sgMail.send(msg);
+      await smpt2goApi.client().consume(mailService);
     } catch (error: any) {
       Sentry.captureException(error);
 
