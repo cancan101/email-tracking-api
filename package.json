@@ -28,7 +28,7 @@
   "dependencies": {
     "@node-oauth/express-oauth-server": "^3.0.1",
     "@node-oauth/oauth2-server": "^4.3.2",
-    "@prisma/client": "^6.15.0",
+    "@prisma/client": "^6.16.1",
     "@sentry/node": "^7.120.3",
     "@sentry/tracing": "^7.120.3",
     "commander": "^11.1.0",
@@ -63,7 +63,7 @@
     "lint-staged": "^15.2.0",
     "nodemon": "^3.1.10",
     "prettier": "^3.5.3",
-    "prisma": "^6.15.0",
+    "prisma": "^6.16.1",
     "supertest": "^6.3.3",
     "ts-jest": "^28.0.8",
     "typescript": "^5.2.2"
