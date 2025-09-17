@@ -71,6 +71,7 @@
   "engines": {
     "node": "22.x"
   },
+  "packageManager": "npm@10",
   "private": true,
   "lint-staged": {
     "**/*": "prettier --write --ignore-unknown"
