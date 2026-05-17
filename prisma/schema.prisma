@@ -63,7 +63,7 @@ model AuthorizationCode {
   clientId    String    @db.VarChar
   userId      String    @db.Uuid
   redirectUri String    @db.VarChar
-  scope       String?   @db.VarChar
+  scope       String[]
   expiresAt   DateTime  @db.Timestamptz(6)
   createdAt   DateTime  @default(now()) @db.Timestamptz(6)
   consumedAt  DateTime? @db.Timestamptz(6)

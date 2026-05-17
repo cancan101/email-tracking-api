@@ -6,7 +6,7 @@ const baseCode = {
   clientId: "client-1",
   userId: "71cf7000-cf96-47b4-bc9f-bf36f486a088",
   redirectUri: "https://example.com/cb",
-  scope: null,
+  scope: [],
   expiresAt: new Date(Date.now() + 60_000),
   createdAt: new Date(),
   consumedAt: null,
