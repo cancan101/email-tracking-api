@@ -824,7 +824,7 @@ const OAuthServerModel: AuthorizationCodeModel = {
       authorizationCode: row.code,
       expiresAt: row.expiresAt,
       redirectUri: row.redirectUri,
-      scope: row.scope ?? undefined,
+      scope: row.scope,
       // node-oauth only reads `client.id` and `user.id` after this point;
       // grants is required on the client shape per its types.
       client: { id: row.clientId, grants: ["authorization_code"] },
@@ -861,7 +861,7 @@ const OAuthServerModel: AuthorizationCodeModel = {
         userId: String(user.id),
         redirectUri: code.redirectUri,
         expiresAt: code.expiresAt,
-        scope: typeof code.scope === "string" ? code.scope : null,
+        scope: code.scope ?? [],
       },
     });
     return {
