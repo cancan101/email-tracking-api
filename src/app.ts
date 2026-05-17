@@ -25,6 +25,8 @@ import {
 import cookieSession from "cookie-session";
 import crypto from "crypto";
 import nocache from "nocache";
+import escapeHtml from "escape-html";
+import rateLimit from "express-rate-limit";
 
 import sentryTunnelHandler from "./sentry-tunnel";
 import env from "./settings";
@@ -562,11 +564,11 @@ app.get(
   },
 );
 
-// this logouts from everything
-// TODO(cancan101): POST + csrf token (?)
-app.get("/logout", (req: Request, res: Response): void => {
+// this logouts from everything. POST-only so a third-party page cannot trigger
+// it via an <img>/link CSRF; cookie-session uses sameSite=lax so a cross-site
+// form POST will not carry the session cookie either.
+app.post("/logout", (req: Request, res: Response): void => {
   req.session = null;
-  // <script>setTimeout(function() { top.window.close() }, 1);</script>
   res.status(200).send("You are logged out. You may close this window.");
 });
 
@@ -576,11 +578,32 @@ app.get("/logged-in", (req: Request, res: Response): void => {
 });
 
 const ROUTE_LOGIN_REQUEST_MAGIC = "/api/v1/login/request-magic";
+
+// Rate limit by IP first (cheap, runs before we parse the body), then by email
+// so a single address can't be spammed with magic links from many IPs.
+const requestMagicIpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+});
+const requestMagicEmailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  // Skip ensures we only reach keyGenerator when email is a string.
+  skip: (req) => typeof req.body?.email !== "string",
+  keyGenerator: (req) => (req.body.email as string).toLowerCase(),
+});
+
 app.options(ROUTE_LOGIN_REQUEST_MAGIC, corsMiddleware);
 app.post(
   ROUTE_LOGIN_REQUEST_MAGIC,
   corsMiddleware,
+  requestMagicIpLimiter,
   express.urlencoded({ extended: false }),
+  requestMagicEmailLimiter,
   body("email").isString().isEmail({ domain_specific_validation: true }),
   async (req: Request, res: Response): Promise<void> => {
     const errors = validationResult(req);
@@ -625,8 +648,6 @@ app.post(
       })
       .subject("Email Tracker")
       .text(`Login using: ${loginUrl}`);
-
-    console.log("loginUrl:", email, loginUrl);
 
     try {
       // TODO(cancan101): option to mock this (merge with log above)
@@ -858,10 +879,11 @@ app.get(
     );
 
     if (login_hint_user === undefined) {
+      const safeLoginHint = escapeHtml(login_hint);
       const errorContents =
-        `You are not currently logged in as: ${login_hint}` +
+        `You are not currently logged in as: ${safeLoginHint}` +
         `<form enctype="application/x-www-form-urlencoded" method="post" action="${ROUTE_LOGIN_REQUEST_MAGIC}">` +
-        `<input type="hidden" name="email" value="${login_hint}">` +
+        `<input type="hidden" name="email" value="${safeLoginHint}">` +
         `<input type="submit" value="Login">` +
         `</form>`;
       response.send(errorContents);
