@@ -8,13 +8,7 @@ import pinoHttp from "pino-http";
 import { randomUUID } from "crypto";
 import { Prisma, View, Tracker } from "@prisma/client";
 import dayjs from "dayjs";
-import {
-  query,
-  validationResult,
-  body,
-  matchedData,
-  param,
-} from "express-validator";
+import { z, ZodError } from "zod";
 import jsonwebtoken from "jsonwebtoken";
 import { expressjwt, Request as JWTRequest } from "express-jwt";
 import SMTP2GOApi from "smtp2go-nodejs";
@@ -38,6 +32,29 @@ import env from "./settings";
 import { getClientIpGeo } from "./client-info";
 import prisma from "./client";
 import logger from "./logger";
+import {
+  imageQuerySchema,
+  imageParamsSchema,
+  threadParamsSchema,
+  viewsQuerySchema,
+  trackerBodySchema,
+  magicLoginQuerySchema,
+  requestMagicBodySchema,
+  useMagicBodySchema,
+  oauthAuthQuerySchema,
+} from "./schemas";
+
+// Format zod validation errors into the same shape we used to return so
+// existing API clients see a consistent { errors: [...] } envelope.
+function zodErrorBody(err: ZodError) {
+  return {
+    errors: err.issues.map((i) => ({
+      path: i.path.join("."),
+      message: i.message,
+      code: i.code,
+    })),
+  };
+}
 
 // -------------------------------------------------
 
@@ -195,17 +212,16 @@ async function processImage(
   return;
 }
 
-async function imageRoute(req: Request, res: Response): Promise<void> {
+async function imageRoute(
+  trackId: string | null,
+  req: Request,
+  res: Response,
+): Promise<void> {
   res.sendFile(transparentGifPath, { lastModified: false });
-
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    // Just send the image in this case
+  if (trackId === null) {
+    // Validation failed; we still served the pixel but won't record a view.
     return;
   }
-  const data = matchedData(req);
-  const trackId = data.trackId as string;
-
   await processImage(trackId, req, res);
 }
 
@@ -213,19 +229,18 @@ async function imageRoute(req: Request, res: Response): Promise<void> {
 app.get(
   "/image.gif",
   nocache(),
-  query("trackId").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
-    await imageRoute(req, res);
+    const parsed = imageQuerySchema.safeParse(req.query);
+    await imageRoute(parsed.success ? parsed.data.trackId : null, req, res);
   },
 );
 
 app.get(
   "/t/:trackingSlug/:trackId/image.gif",
   nocache(),
-  param("trackingSlug").isString().isUUID(),
-  param("trackId").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
-    await imageRoute(req, res);
+    const parsed = imageParamsSchema.safeParse(req.params);
+    await imageRoute(parsed.success ? parsed.data.trackId : null, req, res);
   },
 );
 
@@ -288,20 +303,18 @@ app.get(
   "/api/v1/threads/:threadId/views/",
   corsMiddleware,
   ...UseJwt,
-  param("threadId").isString(),
   async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).json({});
       return;
     }
 
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
+    const parsed = threadParamsSchema.safeParse(req.params);
+    if (!parsed.success) {
+      res.status(400).json(zodErrorBody(parsed.error));
       return;
     }
-    const data = matchedData(req);
-    const threadId = String(data.threadId);
+    const { threadId } = parsed.data;
     const userIdAuth = req.auth.sub;
 
     const views = await getViewsForTracker(threadId, userIdAuth);
@@ -321,21 +334,18 @@ app.get(
   "/api/v1/views/",
   corsMiddleware,
   ...UseJwt,
-  query("userId").isString().isUUID(),
-  query("limit").isInt({ gt: 0 }).optional(),
   async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).json({});
       return;
     }
 
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
+    const parsed = viewsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json(zodErrorBody(parsed.error));
       return;
     }
-    const data = matchedData(req);
-    const userId = data.userId as string;
+    const { userId, limit } = parsed.data;
 
     const userIdAuth = req.auth.sub;
     if (userIdAuth !== userId) {
@@ -358,7 +368,7 @@ app.get(
             },
           },
         },
-        take: data.limit == null ? undefined : parseInt(data.limit, 10),
+        take: limit,
       });
     } catch (error) {
       if (
@@ -394,7 +404,9 @@ app.get(
   },
 );
 
-const parseScheduledSendAt = (scheduledTimestamp: any): Date | null => {
+const parseScheduledSendAt = (
+  scheduledTimestamp: number | string | undefined,
+): Date | null => {
   if (scheduledTimestamp == null) {
     return null;
   } else if (typeof scheduledTimestamp === "number") {
@@ -407,7 +419,9 @@ const parseScheduledSendAt = (scheduledTimestamp: any): Date | null => {
 const getSessionUsers = (
   session: CookieSessionInterfaces.CookieSessionObject,
 ): UserData[] => {
-  return (session.users as UserData[] | undefined) ?? [];
+  // session.users is set by us on /magic-login; treat anything else as empty.
+  const raw = session.users;
+  return Array.isArray(raw) ? (raw as UserData[]) : [];
 };
 
 app.options("/api/v1/trackers/", corsMiddleware);
@@ -415,25 +429,18 @@ app.post(
   "/api/v1/trackers/",
   corsMiddleware,
   ...UseJwt,
-  body("trackId").isString().isUUID(),
-  body("threadId").isString(),
-  body("emailId").isString(),
-  body("emailSubject").isString(),
-  body("scheduledTimestamp").isInt({ gt: 0 }).optional(),
-  body("selfLoadMitigation").isBoolean().optional(),
   async (req: JWTRequest, res: Response): Promise<void> => {
     if (!req.auth || !req.auth.sub) {
       res.status(401).json({});
       return;
     }
 
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
+    const parsed = trackerBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json(zodErrorBody(parsed.error));
       return;
     }
 
-    const data = matchedData(req);
     const {
       trackId,
       threadId,
@@ -441,57 +448,52 @@ app.post(
       emailSubject,
       scheduledTimestamp,
       selfLoadMitigation,
-    } = data;
+    } = parsed.data;
 
-    if (trackId) {
-      const userId = req.auth.sub;
-      const clientIp = req.ip;
+    const userId = req.auth.sub;
+    const clientIp = req.ip;
 
-      const scheduledSendAt = parseScheduledSendAt(scheduledTimestamp);
+    const scheduledSendAt = parseScheduledSendAt(scheduledTimestamp);
 
-      if (scheduledSendAt !== null && isNaN(+scheduledSendAt)) {
-        res.status(400).json({ error_code: "invalid_scheduledTimestamp" });
-        return;
-      }
-
-      try {
-        await prisma.tracker.create({
-          data: {
-            userId,
-            trackId,
-            threadId,
-            emailId,
-            emailSubject,
-            scheduledSendAt,
-            clientIp,
-            selfLoadMitigation,
-          },
-        });
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2002" &&
-          // not sure if this needs a contains,
-          // rather than assuming it is at index 0
-          (error.meta?.target as string[] | undefined)?.[0] === "emailId"
-        ) {
-          req.log.info({ trackId }, "emailId already tracked");
-          res.status(409).json({});
-          return;
-        } else {
-          Sentry.captureException(error);
-          req.log.error({ err: error }, "tracker.create failed");
-
-          res.status(500).json({});
-          return;
-        }
-      }
-      res.status(201).json({});
-      return;
-    } else {
-      res.status(400).json({});
+    if (scheduledSendAt !== null && isNaN(+scheduledSendAt)) {
+      res.status(400).json({ error_code: "invalid_scheduledTimestamp" });
       return;
     }
+
+    try {
+      await prisma.tracker.create({
+        data: {
+          userId,
+          trackId,
+          threadId,
+          emailId,
+          emailSubject,
+          scheduledSendAt,
+          clientIp,
+          selfLoadMitigation,
+        },
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002" &&
+        // not sure if this needs a contains,
+        // rather than assuming it is at index 0
+        (error.meta?.target as string[] | undefined)?.[0] === "emailId"
+      ) {
+        req.log.info({ trackId }, "emailId already tracked");
+        res.status(409).json({});
+        return;
+      } else {
+        Sentry.captureException(error);
+        req.log.error({ err: error }, "tracker.create failed");
+
+        res.status(500).json({});
+        return;
+      }
+    }
+    res.status(201).json({});
+    return;
   },
 );
 
@@ -518,78 +520,73 @@ async function getAccessToken(
   return { accessToken, expiresIn };
 }
 
-app.get(
-  "/magic-login",
-  query("token").isString().isUUID(),
-  async (req: Request, res: Response): Promise<void> => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
-      return;
-    }
-
-    const session = req.session;
-    if (session == null) {
-      res.status(500).json({});
-      return;
-    }
-
-    const data = matchedData(req);
-    const token = data.token as string;
-
-    const magicLinkToken = await prisma.magicLinkToken.findFirst({
-      where: { token },
-      include: { user: { select: { email: true, slug: true } } },
-    });
-
-    if (!magicLinkToken) {
-      res.status(400).json({ error_code: "token_invalid" });
-      return;
-    } else if (magicLinkToken.usedAt) {
-      res.status(400).json({ error_code: "token_used" });
-      return;
-    } else if (magicLinkToken.expiresAt < dayjs().toDate()) {
-      res.status(400).json({ error_code: "token_used" });
-      return;
-    }
-
-    await prisma.magicLinkToken.update({
-      where: { id: magicLinkToken.id },
-      data: {
-        usedAt: dayjs().toDate(),
-      },
-    });
-
-    // We are creating the access token at login time
-    // and then we save it off on the session
-    const userId = magicLinkToken.userId;
-    const { accessToken, expiresIn } = await getAccessToken(userId);
-    const { email, slug } = magicLinkToken.user;
-
-    const userData: UserData = {
-      accessToken,
-      expiresIn,
-      emailAccount: email,
-      trackingSlug: slug,
-      // warty to track this:
-      emailToken: token,
-    };
-
-    const currentUsers = getSessionUsers(session);
-    // splice out this email if we already track it
-    const otherUsers = currentUsers.filter(
-      (currentUser) => currentUser.emailAccount !== userData.emailAccount,
-    );
-    session.users = [userData, ...otherUsers] as UserData[];
-
-    res.status(200).send("Logging in...");
-
-    // We could do a redirect here to a page that the Chrome extension would use
-    // That way errors are surfaced
-
+app.get("/magic-login", async (req: Request, res: Response): Promise<void> => {
+  const parsed = magicLoginQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json(zodErrorBody(parsed.error));
     return;
-  },
-);
+  }
+
+  const session = req.session;
+  if (session == null) {
+    res.status(500).json({});
+    return;
+  }
+
+  const { token } = parsed.data;
+
+  const magicLinkToken = await prisma.magicLinkToken.findFirst({
+    where: { token },
+    include: { user: { select: { email: true, slug: true } } },
+  });
+
+  if (!magicLinkToken) {
+    res.status(400).json({ error_code: "token_invalid" });
+    return;
+  } else if (magicLinkToken.usedAt) {
+    res.status(400).json({ error_code: "token_used" });
+    return;
+  } else if (magicLinkToken.expiresAt < dayjs().toDate()) {
+    res.status(400).json({ error_code: "token_used" });
+    return;
+  }
+
+  await prisma.magicLinkToken.update({
+    where: { id: magicLinkToken.id },
+    data: {
+      usedAt: dayjs().toDate(),
+    },
+  });
+
+  // We are creating the access token at login time
+  // and then we save it off on the session
+  const userId = magicLinkToken.userId;
+  const { accessToken, expiresIn } = await getAccessToken(userId);
+  const { email, slug } = magicLinkToken.user;
+
+  const userData: UserData = {
+    accessToken,
+    expiresIn,
+    emailAccount: email,
+    trackingSlug: slug,
+    // warty to track this:
+    emailToken: token,
+  };
+
+  const currentUsers = getSessionUsers(session);
+  // splice out this email if we already track it
+  const otherUsers = currentUsers.filter(
+    (currentUser) => currentUser.emailAccount !== userData.emailAccount,
+  );
+  session.users = [userData, ...otherUsers] as UserData[];
+
+  res.status(200).send("Logging in...");
+
+  // We could do a redirect here to a page that the Chrome extension would use
+  // That way errors are surfaced
+
+  return;
+});
 
 // this logouts from everything. POST-only so a third-party page cannot trigger
 // it via an <img>/link CSRF; cookie-session uses sameSite=lax so a cross-site
@@ -631,11 +628,10 @@ app.post(
   requestMagicIpLimiter,
   express.urlencoded({ extended: false }),
   requestMagicEmailLimiter,
-  body("email").isString().isEmail({ domain_specific_validation: true }),
   async (req: Request, res: Response): Promise<void> => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
+    const parsed = requestMagicBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json(zodErrorBody(parsed.error));
       return;
     }
 
@@ -647,9 +643,7 @@ app.post(
     // From here on out, just return 200
     res.status(200).json({});
 
-    const data = matchedData(req);
-
-    const { email } = data;
+    const { email } = parsed.data;
 
     // Consider wrapping this all in try / catch
     const user = await prisma.user.findFirst({ where: { email } });
@@ -702,15 +696,14 @@ app.options("/api/v1/login/use-magic", corsMiddleware);
 app.post(
   "/api/v1/login/use-magic",
   corsMiddleware,
-  body("token").isString().isUUID(),
   async (req: Request, res: Response): Promise<void> => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
+    const parsed = useMagicBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json(zodErrorBody(parsed.error));
       return;
     }
 
-    const token = req.body.token as string;
+    const { token } = parsed.data;
 
     const session = req.session;
     if (session == null) {
@@ -882,15 +875,13 @@ const oauth = new OAuthServer({
 
 app.get(
   "/o/oauth2/auth",
-  query("login_hint").isString().isEmail({ domain_specific_validation: true }),
   (request, response, next) => {
-    const errors = validationResult(request);
-    if (!errors.isEmpty()) {
-      response.status(400).json({ errors: errors.array() });
+    const parsed = oauthAuthQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      response.status(400).json(zodErrorBody(parsed.error));
       return;
     }
-    const data = matchedData(request);
-    const login_hint = data.login_hint as string;
+    const { login_hint } = parsed.data;
 
     const session = request.session;
     if (session == null) {
