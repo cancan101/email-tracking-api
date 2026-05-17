@@ -3,6 +3,7 @@ import IPCIDR from "ip-cidr";
 
 import { fetchWithTimeout } from "./utils";
 import type { ClientIpGeo } from "./types";
+import logger from "./logger";
 
 // -------------------------------------------------
 
@@ -34,7 +35,7 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
     return iCloudEgressDataCache;
   }
 
-  console.log("Loading iCloud records from Apple");
+  logger.info("Loading iCloud records from Apple");
 
   let iCloudEgressData: ICloudEgressDatum[] | null = null;
   try {
@@ -43,18 +44,18 @@ async function getICloudEgressData(): Promise<ICloudEgressDatum[] | null> {
     // getICloudEgressDataRaw2 raises AbortError rather than TimeoutError,
     // perhaps due to the streaming.
     if (error instanceof DOMException && error.name === "AbortError") {
-      console.error("getICloudEgressDataRaw2 call timed-out");
+      logger.warn("getICloudEgressDataRaw2 call timed-out");
     } else {
-      console.error("getICloudEgressDataRaw2 call failed");
+      logger.error({ err: error }, "getICloudEgressDataRaw2 call failed");
       Sentry.captureException(error);
     }
   }
 
   if (iCloudEgressData === null) {
-    console.error("Failed to load iCloud records from Apple");
+    logger.error("Failed to load iCloud records from Apple");
     return null;
   }
-  console.log(`${iCloudEgressData.length} records loaded from Apple`);
+  logger.info({ count: iCloudEgressData.length }, "iCloud records loaded");
   iCloudEgressDataCache = iCloudEgressData;
   return iCloudEgressData;
 }
@@ -320,15 +321,15 @@ export async function getClientIpGeo(
     } catch (error) {
       // Prior to Node 19, the name is AbortError
       if (error instanceof DOMException && error.name === "TimeoutError") {
-        console.error("lookupIpApi call timed-out");
+        logger.warn("lookupIpApi call timed-out");
       } else if (
         error instanceof TypeError &&
         error.cause &&
         (error.cause as any).code === "ECONNRESET"
       ) {
-        console.error("lookupIpApi call connection failed");
+        logger.warn("lookupIpApi call connection failed");
       } else {
-        console.error("lookupIpApi call failed");
+        logger.error({ err: error }, "lookupIpApi call failed");
         Sentry.captureException(error);
       }
     }
@@ -341,9 +342,9 @@ export async function getClientIpGeo(
     } catch (error) {
       // Prior to Node 19, the name is AbortError
       if (error instanceof DOMException && error.name === "TimeoutError") {
-        console.error("lookupIpwhois call timed-out");
+        logger.warn("lookupIpwhois call timed-out");
       } else {
-        console.error("lookupIpwhois call failed");
+        logger.error({ err: error }, "lookupIpwhois call failed");
         Sentry.captureException(error);
       }
     }
