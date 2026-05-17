@@ -4,19 +4,25 @@ import { app } from "../src/app";
 import { prismaMock } from "../src/singleton";
 
 describe("XSS in /o/oauth2/auth login_hint", () => {
-  // The express-validator isEmail() check is the first line of defense — a
-  // payload like `"><script>` won't get past it. But isEmail permits HTML
-  // special characters in the local part (`&`, `'`), so escaping the rendered
-  // value is still required.
-  test("html-escapes special characters in a valid email login_hint", async () => {
-    const payload = `a&b'c@example.com`;
+  // Defense in depth: the zod email schema is the first line and rejects
+  // anything that contains HTML-special characters (zod is stricter than the
+  // old express-validator isEmail, which permitted `&` and `'` in the local
+  // part). The escapeHtml() call in the handler is a second line in case
+  // validation is ever loosened or bypassed.
+  test("rejects login_hint with HTML-special characters before rendering", async () => {
     const response = await request(app)
       .get(`/o/oauth2/auth`)
-      .query({ login_hint: payload });
+      .query({ login_hint: `a&b'c@example.com` });
 
-    expect(response.status).toEqual(200);
-    expect(response.text).not.toContain(payload);
-    expect(response.text).toContain("a&amp;b&#39;c@example.com");
+    expect(response.status).toEqual(400);
+  });
+
+  test("rejects login_hint with quote/script payload", async () => {
+    const response = await request(app)
+      .get(`/o/oauth2/auth`)
+      .query({ login_hint: `x"><script>alert(1)</script>@example.com` });
+
+    expect(response.status).toEqual(400);
   });
 });
 
