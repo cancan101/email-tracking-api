@@ -498,6 +498,9 @@ app.post(
 );
 
 type UserData = {
+  // The DB user id. Required so /o/oauth2/auth can persist authorization
+  // codes with a real FK target.
+  id: string;
   accessToken: string;
   expiresIn: number;
   emailAccount: string;
@@ -565,6 +568,7 @@ app.get("/magic-login", async (req: Request, res: Response): Promise<void> => {
   const { email, slug } = magicLinkToken.user;
 
   const userData: UserData = {
+    id: userId,
     accessToken,
     expiresIn,
     emailAccount: email,
@@ -853,12 +857,21 @@ const OAuthServerModel: AuthorizationCodeModel = {
     client,
     user,
   ): Promise<AuthorizationCode> => {
+    // `user` is typed as `{ [key: string]: any }` by @node-oauth, so a
+    // missing id silently coerces to the string "undefined" without this
+    // check and the DB then rejects it with a confusing UUID parse error.
+    if (typeof user.id !== "string" || user.id === "") {
+      throw new Error("OAuth user missing id");
+    }
+    if (typeof client.id !== "string" || client.id === "") {
+      throw new Error("OAuth client missing id");
+    }
     const authorizationCode = crypto.randomUUID();
     await prisma.authorizationCode.create({
       data: {
         code: authorizationCode,
-        clientId: String(client.id),
-        userId: String(user.id),
+        clientId: client.id,
+        userId: user.id,
         redirectUri: code.redirectUri,
         expiresAt: code.expiresAt,
         scope: code.scope ?? [],
