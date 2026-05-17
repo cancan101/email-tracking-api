@@ -1,6 +1,11 @@
+// Side-effect import: makes Express forward async handler rejections to the
+// error middleware instead of leaving them as unhandled promise rejections.
+import "express-async-errors";
 import express, { Request, Response, NextFunction } from "express";
 import path from "path";
 import cors, { CorsOptions } from "cors";
+import pinoHttp from "pino-http";
+import { randomUUID } from "crypto";
 import { Prisma, View, Tracker } from "@prisma/client";
 import dayjs from "dayjs";
 import {
@@ -32,6 +37,7 @@ import sentryTunnelHandler from "./sentry-tunnel";
 import env from "./settings";
 import { getClientIpGeo } from "./client-info";
 import prisma from "./client";
+import logger from "./logger";
 
 // -------------------------------------------------
 
@@ -60,6 +66,27 @@ Sentry.init({
 app.use(Sentry.Handlers.requestHandler());
 // TracingHandler creates a trace for every incoming request
 app.use(Sentry.Handlers.tracingHandler());
+
+// Structured request logging + request IDs. Trust an inbound X-Request-Id
+// from the proxy/CDN if present, otherwise mint a UUID. Echo it back on the
+// response so clients can correlate with server logs.
+app.use(
+  pinoHttp({
+    logger,
+    genReqId: (req, res) => {
+      const inbound = req.headers["x-request-id"];
+      const id =
+        typeof inbound === "string" && inbound ? inbound : randomUUID();
+      res.setHeader("x-request-id", id);
+      return id;
+    },
+    customLogLevel: (_req, res, err) => {
+      if (err || res.statusCode >= 500) return "error";
+      if (res.statusCode >= 400) return "warn";
+      return "info";
+    },
+  }),
+);
 
 // -------------------------------------------------
 
@@ -159,10 +186,10 @@ async function processImage(
       error.code === "P2003" &&
       error.meta?.field_name === "View_trackId_fkey (index)"
     ) {
-      console.log("Unknown tracker requested", trackId);
+      req.log.info({ trackId }, "Unknown tracker requested");
     } else {
       Sentry.captureException(error);
-      console.error(error);
+      req.log.error({ err: error }, "processImage failed");
     }
   }
   return;
@@ -339,12 +366,12 @@ app.get(
         // https://www.prisma.io/docs/reference/api-reference/error-reference#error-codes
         error.code === "P1001"
       ) {
-        console.log("Can't reach database server");
+        req.log.warn("Can't reach database server");
         res.status(503).json({});
         return;
       } else {
         Sentry.captureException(error);
-        console.error(error);
+        req.log.error({ err: error }, "views.findMany failed");
 
         res.status(500).json({});
         return;
@@ -448,12 +475,12 @@ app.post(
           // rather than assuming it is at index 0
           (error.meta?.target as string[] | undefined)?.[0] === "emailId"
         ) {
-          console.log("emailId already tracked", trackId);
+          req.log.info({ trackId }, "emailId already tracked");
           res.status(409).json({});
           return;
         } else {
           Sentry.captureException(error);
-          console.error(error);
+          req.log.error({ err: error }, "tracker.create failed");
 
           res.status(500).json({});
           return;
@@ -649,17 +676,18 @@ app.post(
       .subject("Email Tracker")
       .text(`Login using: ${loginUrl}`);
 
+    req.log.info({ userId: user.id }, "Sending magic link email");
+
     try {
-      // TODO(cancan101): option to mock this (merge with log above)
+      // TODO(cancan101): option to mock this
       await smpt2goApi.client().consume(mailService);
     } catch (error: any) {
       Sentry.captureException(error);
 
-      console.error(error);
-
-      if (error.response) {
-        console.error(error.response.body);
-      }
+      req.log.error(
+        { err: error, response: error.response?.body },
+        "SMTP2GO send failed",
+      );
     }
 
     return;
@@ -903,6 +931,21 @@ app.post(
 
 // The error handler must be before any other error middleware and after all controllers
 app.use(Sentry.Handlers.errorHandler());
+
+// Terminal error middleware. Anything thrown from an async route handler is
+// routed here by express-async-errors. We log it (the per-request pino logger
+// adds the request id) and return a generic 500 without leaking internals.
+app.use(
+  (err: Error, req: Request, res: Response, _next: NextFunction): void => {
+    if (res.headersSent) {
+      // Response already started; nothing useful we can send back. Just log.
+      (req.log ?? logger).error({ err }, "Error after response started");
+      return;
+    }
+    (req.log ?? logger).error({ err }, "Unhandled error in route");
+    res.status(500).json({});
+  },
+);
 
 // -------------------------------------------------
 
