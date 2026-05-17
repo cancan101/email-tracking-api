@@ -25,6 +25,7 @@ import {
 import cookieSession from "cookie-session";
 import crypto from "crypto";
 import nocache from "nocache";
+import escapeHtml from "escape-html";
 import rateLimit from "express-rate-limit";
 
 import sentryTunnelHandler from "./sentry-tunnel";
@@ -97,16 +98,6 @@ if (!fs.existsSync(transparentGifPath)) {
 const GMAIL_ORIGIN: string = "https://mail.google.com";
 
 const JWT_ALGORITHM = "HS256";
-
-const HTML_ESCAPES: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#39;",
-};
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
 
 // -------------------------------------------------
 
