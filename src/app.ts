@@ -802,56 +802,75 @@ const OAuthServerModel: AuthorizationCodeModel = {
     };
   },
   generateAccessToken: async (client, user, scope) => {
-    return user.accessToken;
+    // Mint the token here instead of pulling one off the user object that
+    // the authorize step pulled out of the session. With DB-backed codes
+    // only the userId is round-tripped, and this also means the JWT is
+    // freshly issued at token-exchange time rather than reused from login.
+    const { accessToken } = await getAccessToken(String(user.id));
+    return accessToken;
   },
   getAuthorizationCode: async (
     authorizationCode,
   ): Promise<AuthorizationCode> => {
-    // here we just parse the jwt that send out
-    // we should verify
-    const data = jsonwebtoken.decode(authorizationCode);
-    if (data === null || typeof data === "string") {
-      throw Error();
+    // Look the code up in Postgres. Reject if it's missing, already used,
+    // or expired. Returning anything other than a valid code makes the
+    // node-oauth library refuse the token exchange.
+    const row = await prisma.authorizationCode.findUnique({
+      where: { code: authorizationCode },
+    });
+    if (row === null) {
+      throw new Error("invalid authorization code");
     }
-    const { client, user, expiresAt: expiresAtNum, redirectUri } = data;
-
+    if (row.consumedAt !== null) {
+      throw new Error("authorization code already used");
+    }
+    if (row.expiresAt < new Date()) {
+      throw new Error("authorization code expired");
+    }
     return {
-      authorizationCode,
-      client,
-      user,
-      expiresAt: new Date(expiresAtNum),
-      redirectUri,
+      authorizationCode: row.code,
+      expiresAt: row.expiresAt,
+      redirectUri: row.redirectUri,
+      scope: row.scope ?? undefined,
+      // node-oauth only reads `client.id` and `user.id` after this point;
+      // grants is required on the client shape per its types.
+      client: { id: row.clientId, grants: ["authorization_code"] },
+      user: { id: row.userId },
     };
   },
-  revokeAuthorizationCode: async () => {
-    // we can't currently revoke as this is stateless
-    return true;
+  revokeAuthorizationCode: async (code): Promise<boolean> => {
+    // Atomic single-use: only the first revoke that finds consumedAt=null
+    // succeeds. updateMany returns a count, so concurrent token exchanges
+    // can't both win.
+    const result = await prisma.authorizationCode.updateMany({
+      where: {
+        code: code.authorizationCode,
+        consumedAt: null,
+      },
+      data: { consumedAt: new Date() },
+    });
+    return result.count === 1;
   },
   verifyScope: async (): Promise<never> => {
     //https://oauth2-server.readthedocs.io/en/latest/model/spec.html#verifyscope-accesstoken-scope-callback
     throw Error();
   },
-  // we should use a real auth code and not this BS
   saveAuthorizationCode: async (
     code,
     client,
     user,
   ): Promise<AuthorizationCode> => {
-    const authorizationCode = await jsonwebtoken.sign(
-      {
+    const authorizationCode = crypto.randomUUID();
+    await prisma.authorizationCode.create({
+      data: {
+        code: authorizationCode,
+        clientId: String(client.id),
+        userId: String(user.id),
         redirectUri: code.redirectUri,
-        expiresAt: code.expiresAt.getTime(),
-        client,
-        user,
+        expiresAt: code.expiresAt,
+        scope: typeof code.scope === "string" ? code.scope : null,
       },
-      env.JWT_ACCESS_TOKEN_SECRET,
-      {
-        algorithm: JWT_ALGORITHM,
-        // Should we track any of these?
-        // expiresIn,
-        // subject,
-      },
-    );
+    });
     return {
       ...code,
       authorizationCode,
@@ -949,4 +968,4 @@ app.use(
 
 // -------------------------------------------------
 
-export { app, getAccessToken };
+export { app, getAccessToken, OAuthServerModel };

@@ -57,3 +57,16 @@ model MagicLinkToken {
   usedAt    DateTime? @db.Timestamptz(6)
   user      User      @relation(fields: [userId], references: [id])
 }
+
+model AuthorizationCode {
+  code        String    @id @db.VarChar
+  clientId    String    @db.VarChar
+  userId      String    @db.Uuid
+  redirectUri String    @db.VarChar
+  scope       String?   @db.VarChar
+  expiresAt   DateTime  @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(6)
+  consumedAt  DateTime? @db.Timestamptz(6)
+
+  @@index([expiresAt])
+}
