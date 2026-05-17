@@ -45,7 +45,7 @@ const sentryTunnelHandler = async (
       method: "POST",
       body: envelope,
     });
-    res.json(response.json());
+    res.json(await response.json());
     return;
   } catch (e) {
     Sentry.captureException(e);
