@@ -353,23 +353,55 @@ app.get(
       return;
     }
 
-    let viewsRaw;
+    // Push the self-load filter into SQL. Previously this was done in JS
+    // *after* `take: limit`, so `limit=100` could return 0 views if all 100
+    // fetched rows turned out to be self-loads. Now the filter runs in
+    // Postgres before LIMIT, so the limit means what the caller expects.
+    type ViewRow = {
+      id: string;
+      clientIp: string;
+      userAgent: string;
+      trackId: string;
+      createdAt: Date;
+      clientIpGeo: unknown;
+      tracker: {
+        threadId: string;
+        emailSubject: string;
+        selfLoadMitigation: boolean | null;
+        createdAt: string;
+      };
+    };
+
+    const limitClause =
+      limit !== undefined ? Prisma.sql`LIMIT ${limit}` : Prisma.empty;
+    const selfViewThresholdSec = env.SELF_VIEW_THRESHOLD_SEC;
+
+    let views: ViewRow[];
     try {
-      viewsRaw = await prisma.view.findMany({
-        where: { tracker: { userId } },
-        orderBy: { createdAt: "desc" },
-        include: {
-          tracker: {
-            select: {
-              threadId: true,
-              emailSubject: true,
-              selfLoadMitigation: true,
-              createdAt: true,
-            },
-          },
-        },
-        take: limit,
-      });
+      views = await prisma.$queryRaw<ViewRow[]>`
+        SELECT
+          v."id",
+          v."clientIp",
+          v."userAgent",
+          v."trackId",
+          v."createdAt",
+          v."clientIpGeo",
+          json_build_object(
+            'threadId', t."threadId",
+            'emailSubject', t."emailSubject",
+            'selfLoadMitigation', t."selfLoadMitigation",
+            'createdAt', t."createdAt"
+          ) AS tracker
+        FROM "View" v
+        JOIN "Tracker" t ON t."trackId" = v."trackId"
+        WHERE t."userId" = ${userId}::uuid
+          AND (
+            t."selfLoadMitigation" IS NOT FALSE
+            OR EXTRACT(EPOCH FROM (v."createdAt" - t."createdAt")) >= ${selfViewThresholdSec}
+          )
+        ORDER BY v."createdAt" DESC
+        ${limitClause}
+      `;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -381,23 +413,12 @@ app.get(
         return;
       } else {
         Sentry.captureException(error);
-        req.log.error({ err: error }, "views.findMany failed");
+        req.log.error({ err: error }, "views.$queryRaw failed");
 
         res.status(500).json({});
         return;
       }
     }
-
-    // TODO: push this into SQL so that the limit clause is correct
-    const views = viewsRaw.filter(
-      (view) =>
-        view.tracker.selfLoadMitigation !== false ||
-        dayjs(view.createdAt).diff(
-          dayjs(view.tracker.createdAt),
-          "second",
-          true,
-        ) >= env.SELF_VIEW_THRESHOLD_SEC,
-    );
 
     res.json({ data: views });
     return;
