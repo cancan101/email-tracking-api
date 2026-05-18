@@ -26,10 +26,13 @@ describe("XSS in /o/oauth2/auth login_hint", () => {
   });
 });
 
-describe("CSRF on /logout", () => {
-  test("rejects GET", async () => {
+describe("/logout", () => {
+  // Both verbs are accepted: POST is the preferred path for browser clients,
+  // GET is required by the Gmail Apps Script add-on whose CardService button
+  // opens the URL via a top-level navigation in an overlay.
+  test("accepts GET (Apps Script add-on path)", async () => {
     const response = await request(app).get("/logout");
-    expect(response.status).toEqual(404);
+    expect(response.status).toEqual(200);
   });
 
   test("accepts POST", async () => {
