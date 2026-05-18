@@ -1,0 +1,86 @@
+name: Smoke test deployment
+
+# Heroku's GitHub integration posts deployment_status events when a release
+# finishes; the production smoke test runs against the deployed URL on
+# success. Also supports manual dispatch with an explicit URL.
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Base URL to probe (without /healthz)"
+        required: true
+        type: string
+
+jobs:
+  smoke:
+    # Only run on successful deployments; ignore in-progress / failure events
+    # that deployment_status also fires for.
+    if: >
+      ${{ github.event_name == 'workflow_dispatch' ||
+          github.event.deployment_status.state == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Resolve healthz URL
+        id: url
+        env:
+          DISPATCH_URL: ${{ inputs.url }}
+          VAR_URL: ${{ vars.SMOKE_TEST_BASE_URL }}
+          ENV_URL: ${{ github.event.deployment_status.environment_url }}
+          TARGET_URL: ${{ github.event.deployment_status.target_url }}
+        run: |
+          set -eu
+          # Precedence:
+          # 1. workflow_dispatch input (manual run)
+          # 2. SMOKE_TEST_BASE_URL repository variable (most reliable)
+          # 3. environment_url from the deployment_status event (set by
+          #    some integrations)
+          # 4. target_url (often the Heroku dashboard URL, not the app URL —
+          #    only useful when nothing else is set)
+          if [ -n "$DISPATCH_URL" ]; then
+            BASE="$DISPATCH_URL"
+          elif [ -n "$VAR_URL" ]; then
+            BASE="$VAR_URL"
+          elif [ -n "$ENV_URL" ]; then
+            BASE="$ENV_URL"
+          else
+            BASE="$TARGET_URL"
+          fi
+          # Strip trailing slash, then append /healthz.
+          BASE="${BASE%/}"
+          URL="$BASE/healthz"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Smoke test URL: $URL"
+
+      - name: Probe /healthz with retries
+        env:
+          URL: ${{ steps.url.outputs.url }}
+        run: |
+          set -eu
+          if [ -z "$URL" ] || [ "$URL" = "/healthz" ]; then
+            echo "No URL available; set vars.SMOKE_TEST_BASE_URL or dispatch manually."
+            exit 1
+          fi
+          # Retry: Heroku takes a few seconds to start serving traffic on
+          # the new dyno after deployment_status fires.
+          ATTEMPTS=10
+          SLEEP_SEC=6
+          for i in $(seq 1 $ATTEMPTS); do
+            echo "Attempt $i/$ATTEMPTS: GET $URL"
+            STATUS=$(curl -s -o /tmp/body \
+              -H "x-request-id: smoke-test-$GITHUB_RUN_ID-$i" \
+              -w '%{http_code}' --max-time 10 "$URL" || echo "000")
+            echo "  -> HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Body:"
+              cat /tmp/body
+              echo ""
+              echo "Smoke test passed."
+              exit 0
+            fi
+            echo "  body: $(cat /tmp/body 2>/dev/null || echo '<none>')"
+            sleep $SLEEP_SEC
+          done
+          echo "Smoke test failed: /healthz never returned 200 after $ATTEMPTS attempts."
+          exit 1
