@@ -111,19 +111,19 @@ const smpt2goApi = SMTP2GOApi(env.SMTP2GO_API_KEY);
 
 // -------------------------------------------------
 
-// TODO(cancan101): This should be on just the routes that need it
-app.use(
-  cookieSession({
-    secret: env.COOKIE_SESSION_SECRET,
-
-    // Cookie Options
-    sameSite: "lax",
-    secure: env.COOKIE_SESSION_SECURE,
-    // We use the same expiration here so that the we don't get stale access token
-    // See comments about hacks below with how / when we generate the access token
-    maxAge: env.ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60 * 1000,
-  }),
-);
+// Cookie-session is only needed on the few routes that read/write
+// `req.session.users` (magic-login flow + OAuth authorize). The high-volume
+// pixel handler and the JWT-protected API don't touch the session, so
+// keeping the middleware off those paths cuts per-request work and shrinks
+// the attack surface where a malformed cookie could matter.
+const sessionMiddleware = cookieSession({
+  secret: env.COOKIE_SESSION_SECRET,
+  sameSite: "lax",
+  secure: env.COOKIE_SESSION_SECURE,
+  // We use the same expiration here so that the we don't get stale access token
+  // See comments about hacks below with how / when we generate the access token
+  maxAge: env.ACCESS_TOKEN_EXPIRES_HOURS * 60 * 60 * 1000,
+});
 
 // -------------------------------------------------
 
@@ -544,74 +544,78 @@ async function getAccessToken(
   return { accessToken, expiresIn };
 }
 
-app.get("/magic-login", async (req: Request, res: Response): Promise<void> => {
-  const parsed = magicLoginQuerySchema.safeParse(req.query);
-  if (!parsed.success) {
-    res.status(400).json(zodErrorBody(parsed.error));
+app.get(
+  "/magic-login",
+  sessionMiddleware,
+  async (req: Request, res: Response): Promise<void> => {
+    const parsed = magicLoginQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json(zodErrorBody(parsed.error));
+      return;
+    }
+
+    const session = req.session;
+    if (session == null) {
+      res.status(500).json({});
+      return;
+    }
+
+    const { token } = parsed.data;
+
+    const magicLinkToken = await prisma.magicLinkToken.findFirst({
+      where: { token },
+      include: { user: { select: { email: true, slug: true } } },
+    });
+
+    if (!magicLinkToken) {
+      res.status(400).json({ error_code: "token_invalid" });
+      return;
+    } else if (magicLinkToken.usedAt) {
+      res.status(400).json({ error_code: "token_used" });
+      return;
+    } else if (magicLinkToken.expiresAt < dayjs().toDate()) {
+      res.status(400).json({ error_code: "token_used" });
+      return;
+    }
+
+    await prisma.magicLinkToken.update({
+      where: { id: magicLinkToken.id },
+      data: {
+        usedAt: dayjs().toDate(),
+      },
+    });
+
+    // We are creating the access token at login time
+    // and then we save it off on the session
+    const userId = magicLinkToken.userId;
+    const { accessToken, expiresIn } = await getAccessToken(userId);
+    const { email, slug } = magicLinkToken.user;
+
+    const userData: UserData = {
+      id: userId,
+      accessToken,
+      expiresIn,
+      emailAccount: email,
+      trackingSlug: slug,
+      // warty to track this:
+      emailToken: token,
+    };
+
+    const currentUsers = getSessionUsers(session);
+    // splice out this email if we already track it
+    const otherUsers = currentUsers.filter(
+      (currentUser) => currentUser.emailAccount !== userData.emailAccount,
+    );
+    session.users = [userData, ...otherUsers] as UserData[];
+
+    res.status(200).send("Logging in...");
+
+    // We could do a redirect here to a page that the Chrome extension would use
+    // That way errors are surfaced
+
     return;
-  }
-
-  const session = req.session;
-  if (session == null) {
-    res.status(500).json({});
-    return;
-  }
-
-  const { token } = parsed.data;
-
-  const magicLinkToken = await prisma.magicLinkToken.findFirst({
-    where: { token },
-    include: { user: { select: { email: true, slug: true } } },
-  });
-
-  if (!magicLinkToken) {
-    res.status(400).json({ error_code: "token_invalid" });
-    return;
-  } else if (magicLinkToken.usedAt) {
-    res.status(400).json({ error_code: "token_used" });
-    return;
-  } else if (magicLinkToken.expiresAt < dayjs().toDate()) {
-    res.status(400).json({ error_code: "token_used" });
-    return;
-  }
-
-  await prisma.magicLinkToken.update({
-    where: { id: magicLinkToken.id },
-    data: {
-      usedAt: dayjs().toDate(),
-    },
-  });
-
-  // We are creating the access token at login time
-  // and then we save it off on the session
-  const userId = magicLinkToken.userId;
-  const { accessToken, expiresIn } = await getAccessToken(userId);
-  const { email, slug } = magicLinkToken.user;
-
-  const userData: UserData = {
-    id: userId,
-    accessToken,
-    expiresIn,
-    emailAccount: email,
-    trackingSlug: slug,
-    // warty to track this:
-    emailToken: token,
-  };
-
-  const currentUsers = getSessionUsers(session);
-  // splice out this email if we already track it
-  const otherUsers = currentUsers.filter(
-    (currentUser) => currentUser.emailAccount !== userData.emailAccount,
-  );
-  session.users = [userData, ...otherUsers] as UserData[];
-
-  res.status(200).send("Logging in...");
-
-  // We could do a redirect here to a page that the Chrome extension would use
-  // That way errors are surfaced
-
-  return;
-});
+  },
+);
 
 // Logout destroys the session. We accept both GET and POST because the Gmail
 // Apps Script add-on uses CardService.newOpenLink (a top-level GET) to open
@@ -622,8 +626,8 @@ const logoutHandler = (req: Request, res: Response): void => {
   req.session = null;
   res.status(200).send("You are logged out. You may close this window.");
 };
-app.get("/logout", logoutHandler);
-app.post("/logout", logoutHandler);
+app.get("/logout", sessionMiddleware, logoutHandler);
+app.post("/logout", sessionMiddleware, logoutHandler);
 
 app.get("/logged-in", (req: Request, res: Response): void => {
   res.status(200).send("You are logged in. You may close this window.");
@@ -725,6 +729,7 @@ app.options("/api/v1/login/use-magic", corsMiddleware);
 app.post(
   "/api/v1/login/use-magic",
   corsMiddleware,
+  sessionMiddleware,
   async (req: Request, res: Response): Promise<void> => {
     const parsed = useMagicBodySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -932,6 +937,7 @@ const oauth = new OAuthServer({
 
 app.get(
   "/o/oauth2/auth",
+  sessionMiddleware,
   (request, response, next) => {
     const parsed = oauthAuthQuerySchema.safeParse(request.query);
     if (!parsed.success) {
