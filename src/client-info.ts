@@ -1,9 +1,43 @@
 import * as Sentry from "@sentry/node";
 import IPCIDR from "ip-cidr";
+import { z } from "zod";
 
 import { fetchWithTimeout } from "./utils";
 import type { ClientIpGeo } from "./types";
 import logger from "./logger";
+
+// Schemas for the third-party IP geolocation responses. We don't want to
+// cast raw fields to `string` without checking — if either provider mutates
+// its payload shape we'd silently write garbage into the `clientIpGeo` JSON
+// column. Schemas are permissive (most fields optional) because both APIs
+// historically vary by IP type (proxies, anycast, etc.).
+const ipApiResponseSchema = z.object({
+  status: z.string().optional(),
+  message: z.string().optional(),
+  city: z.string().optional(),
+  region: z.string().optional(),
+  regionName: z.string().optional(),
+  country: z.string().optional(),
+  countryCode: z.string().optional(),
+  isp: z.string().optional(),
+  org: z.string().optional(),
+  as: z.string().optional(),
+  mobile: z.boolean().optional(),
+});
+
+const ipwhoisResponseSchema = z.object({
+  success: z.boolean().optional(),
+  city: z.string().optional(),
+  region: z.string().optional(),
+  region_code: z.string().optional(),
+  country: z.string().optional(),
+  country_code: z.string().optional(),
+  connection: z
+    .object({
+      isp: z.string().optional(),
+    })
+    .optional(),
+});
 
 // -------------------------------------------------
 
@@ -143,20 +177,31 @@ export async function getICloudEgressEntry(
 }
 
 async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
-  let clientIpGeo: ClientIpGeo | null = null;
   const resp = await fetchWithTimeout(`http://ipwho.is/${clientIp}`);
-  clientIpGeo = { source: "ipwhois" };
+  const clientIpGeo: ClientIpGeo = { source: "ipwhois" };
   if (resp.ok) {
-    const clientIpGeoData = await resp.json();
+    const rawJson = await resp.json();
+    clientIpGeo.dataRaw = rawJson;
 
-    clientIpGeo.dataRaw = clientIpGeoData;
+    const parsed = ipwhoisResponseSchema.safeParse(rawJson);
+    if (!parsed.success) {
+      logger.warn(
+        { err: parsed.error.issues },
+        "ipwhois response did not match schema",
+      );
+      Sentry.captureException(
+        new Error(`ipwhois response schema mismatch for ${clientIp}`),
+      );
+      return clientIpGeo;
+    }
+    const data = parsed.data;
 
     // e.g. rate limited
-    if (!clientIpGeoData.success) {
+    if (!data.success) {
       return clientIpGeo;
     }
 
-    const isp = clientIpGeoData?.connection?.isp;
+    const isp = data.connection?.isp;
 
     const isGoogleLlc = isp === "Google LLC";
     // https://developer.apple.com/support/prepare-your-network-for-icloud-private-relay/
@@ -167,13 +212,17 @@ async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
       clientIpGeo.emailProvider = EMAIL_PROVIDER_GMAIL;
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
-    } else {
+    } else if (
+      data.city !== undefined &&
+      data.region_code !== undefined &&
+      data.country_code !== undefined
+    ) {
       clientIpGeo.data = {
-        city: clientIpGeoData.city as string,
-        region: clientIpGeoData.region as string,
-        regionCode: clientIpGeoData.region_code as string,
-        country: clientIpGeoData.country as string,
-        countryCode: clientIpGeoData.country_code as string,
+        city: data.city,
+        region: data.region,
+        regionCode: data.region_code,
+        country: data.country,
+        countryCode: data.country_code,
       };
     }
   } else {
@@ -190,32 +239,42 @@ async function lookupIpwhois(clientIp: string): Promise<ClientIpGeo | null> {
 }
 
 async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
-  let clientIpGeo: ClientIpGeo | null = null;
   const resp = await fetchWithTimeout(
     `http://ip-api.com/json/${clientIp}?fields=status,message,country,countryCode,region,regionName,city,district,zip,lat,lon,timezone,isp,org,as,asname,mobile,proxy,hosting`,
   );
-  clientIpGeo = { source: "ip-api" };
+  const clientIpGeo: ClientIpGeo = { source: "ip-api" };
   if (resp.ok) {
-    const clientIpGeoData = await resp.json();
+    const rawJson = await resp.json();
+    clientIpGeo.dataRaw = rawJson;
 
-    clientIpGeo.dataRaw = clientIpGeoData;
+    const parsed = ipApiResponseSchema.safeParse(rawJson);
+    if (!parsed.success) {
+      logger.warn(
+        { err: parsed.error.issues },
+        "ip-api response did not match schema",
+      );
+      Sentry.captureException(
+        new Error(`ip-api response schema mismatch for ${clientIp}`),
+      );
+      return clientIpGeo;
+    }
+    const data = parsed.data;
 
-    if (clientIpGeoData.status !== "success") {
+    if (data.status !== "success") {
       return clientIpGeo;
     }
 
-    const isp = clientIpGeoData?.isp;
+    const isp = data.isp;
 
     const isGoogleLlc = isp === "Google LLC";
     // https://developer.apple.com/support/prepare-your-network-for-icloud-private-relay/
     const isCloudflareInc = isp === "Cloudflare, Inc.";
 
-    const org = clientIpGeoData?.org;
+    const org = data.org;
     const isICloudPrivateRelay = org === "iCloud Private Relay";
 
     // asname: MICROSOFT-CORP-MSN-AS-BLOCK
-    const isMicrosoftCorpMsn =
-      clientIpGeoData?.as === "AS8075 Microsoft Corporation";
+    const isMicrosoftCorpMsn = data.as === "AS8075 Microsoft Corporation";
 
     if (isGoogleLlc) {
       clientIpGeo.rule = "connectionIspGoogleLlc";
@@ -223,17 +282,20 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
     } else if (isMicrosoftCorpMsn) {
       clientIpGeo.rule = "asMicrosoftMsn";
       clientIpGeo.emailProvider = EMAIL_PROVIDER_OUTLOOK365;
-    } else if (isICloudPrivateRelay) {
+    } else if (
+      isICloudPrivateRelay &&
+      data.city !== undefined &&
+      data.region !== undefined &&
+      data.countryCode !== undefined
+    ) {
       clientIpGeo.rule = "orgICloudPrivateRelay";
       clientIpGeo.emailProvider = EMAIL_PROVIDER_APPLE_MAIL;
-      // The data should be reliable here
       clientIpGeo.data = {
-        //TODO: factor this out as a helper:
-        city: clientIpGeoData.city as string,
-        region: clientIpGeoData.regionName as string,
-        regionCode: clientIpGeoData.region as string,
-        country: clientIpGeoData.country as string,
-        countryCode: clientIpGeoData.countryCode as string,
+        city: data.city,
+        region: data.regionName,
+        regionCode: data.region,
+        country: data.country,
+        countryCode: data.countryCode,
       };
     } else if (isCloudflareInc) {
       clientIpGeo.rule = "connectionIspCloudflareInc";
@@ -247,14 +309,18 @@ async function lookupIpApi(clientIp: string): Promise<ClientIpGeo | null> {
           regionCode: iCloudEgressEntry.regionCode,
         };
       }
-    } else {
+    } else if (
+      data.city !== undefined &&
+      data.region !== undefined &&
+      data.countryCode !== undefined
+    ) {
       clientIpGeo.data = {
-        city: clientIpGeoData.city as string,
-        region: clientIpGeoData.regionName as string,
-        regionCode: clientIpGeoData.region as string,
-        country: clientIpGeoData.country as string,
-        countryCode: clientIpGeoData.countryCode as string,
-        isMobile: clientIpGeoData.mobile as boolean,
+        city: data.city,
+        region: data.regionName,
+        regionCode: data.region,
+        country: data.country,
+        countryCode: data.countryCode,
+        isMobile: data.mobile,
       };
     }
   } else {
