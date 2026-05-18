@@ -592,13 +592,17 @@ app.get("/magic-login", async (req: Request, res: Response): Promise<void> => {
   return;
 });
 
-// this logouts from everything. POST-only so a third-party page cannot trigger
-// it via an <img>/link CSRF; cookie-session uses sameSite=lax so a cross-site
-// form POST will not carry the session cookie either.
-app.post("/logout", (req: Request, res: Response): void => {
+// Logout destroys the session. We accept both GET and POST because the Gmail
+// Apps Script add-on uses CardService.newOpenLink (a top-level GET) to open
+// /logout in an overlay, and there's no way to make Apps Script issue a POST
+// for that UX. The residual CSRF risk on the GET is bounded: the worst an
+// attacker can do is log a user out, which is annoying but recoverable.
+const logoutHandler = (req: Request, res: Response): void => {
   req.session = null;
   res.status(200).send("You are logged out. You may close this window.");
-});
+};
+app.get("/logout", logoutHandler);
+app.post("/logout", logoutHandler);
 
 app.get("/logged-in", (req: Request, res: Response): void => {
   res.status(200).send("You are logged in. You may close this window.");
