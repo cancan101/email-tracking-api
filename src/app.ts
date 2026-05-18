@@ -788,9 +788,23 @@ app.post(
   },
 );
 
-// Probably not needed long term
+// Cheap liveness probe — does not touch the DB. Kept for backwards
+// compatibility; new platform health checks should target /healthz.
 app.get("/ping", (req: Request, res: Response): void => {
   res.status(200).send("");
+});
+
+// Readiness probe that verifies the process can reach Postgres. Returns 503
+// if the DB is unreachable so the platform pulls this dyno out of rotation
+// instead of routing traffic to a broken instance.
+app.get("/healthz", async (req: Request, res: Response): Promise<void> => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ status: "ok" });
+  } catch (err) {
+    req.log.warn({ err }, "Healthz DB probe failed");
+    res.status(503).json({ status: "degraded", reason: "database" });
+  }
 });
 
 app.options("/api/v1/stunnel", corsMiddleware);
