@@ -1,13 +1,36 @@
 import dotenv from "dotenv";
-import { cleanEnv, str, email, port, num, url, host, bool } from "envalid";
+import {
+  cleanEnv,
+  str,
+  email,
+  port,
+  num,
+  url,
+  host,
+  bool,
+  makeValidator,
+} from "envalid";
 
 // -------------------------------------------------
 
 dotenv.config();
 
+// Reject short secrets at boot so a misconfigured deploy fails fast instead
+// of running with cryptographically weak HS256 / cookie-signing keys. 32 chars
+// is the minimum to give HMAC-SHA256 a full block of entropy.
+const SECRET_MIN_LENGTH = 32;
+const secret = makeValidator<string>((value) => {
+  if (typeof value !== "string" || value.length < SECRET_MIN_LENGTH) {
+    throw new Error(
+      `expected at least ${SECRET_MIN_LENGTH} characters, got ${typeof value === "string" ? value.length : typeof value}`,
+    );
+  }
+  return value;
+});
+
 const env = cleanEnv(process.env, {
-  JWT_ACCESS_TOKEN_SECRET: str(),
-  COOKIE_SESSION_SECRET: str(),
+  JWT_ACCESS_TOKEN_SECRET: secret(),
+  COOKIE_SESSION_SECRET: secret(),
   COOKIE_SESSION_SECURE: bool({ default: true, devDefault: false }),
   SMTP2GO_API_KEY: str(),
   PORT: port(),
