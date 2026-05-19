@@ -53,4 +53,18 @@ describe("zod validation on /api/v1/views/", () => {
       .set("Authorization", `Bearer ${accessToken}`);
     expect(response.status).toEqual(400);
   });
+
+  test("accepts a format-valid UUID that doesn't satisfy RFC version bits", async () => {
+    // Pre-#714, isUUID() accepted any 8-4-4-4-12 hex string. zod's .uuid()
+    // enforces RFC version/variant bits (position 14 must be 1-8, position
+    // 19 must be 8/9/a/b). Some historical user rows have version=0 and/or
+    // variant=0, so the userId schema uses a regex to match the old loose
+    // behavior. This fixture has 0 in both positions.
+    const looseUserId = "feedface-cafe-0bad-0ddd-deadbeefcafe";
+    const { accessToken } = await getAccessToken(userId);
+    const response = await request(app)
+      .get(`/api/v1/views/?userId=${looseUserId}&limit=20`)
+      .set("Authorization", `Bearer ${accessToken}`);
+    expect(response.status).not.toEqual(400);
+  });
 });
